@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@babylonjs/core": "^8.0.0",
-    "@capacitor/core": "^6.2.0"
+    "@capacitor/core": "^6.2.0",
+    "@capgo/capacitor-updater": "lts-v6"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
