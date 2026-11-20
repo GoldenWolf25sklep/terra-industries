@@ -177,6 +177,7 @@ const MACHINE_CYCLE_SECONDS = 4;
 const SMELTER_COST = 250;
 const SMELTER_IRON_PER_INGOT = 50;
 const SMELTER_CYCLE_SECONDS = 8;
+const SMELTER_UPGRADE_COSTS = [0, 100, 200];
 const SMELTER_RANGE = 5.5;
 const CONVEYOR_STEEL_COST = 150;
 const CONVEYOR_CYCLE_SECONDS = 4;
@@ -381,6 +382,7 @@ const steelCounter = document.querySelector<HTMLElement>("#steel-count");
 const smelterState = document.querySelector<HTMLElement>("#smelter-state");
 const oreBufferCounter = document.querySelector<HTMLElement>("#ore-buffer-count");
 const buildConveyorButton = document.querySelector<HTMLButtonElement>("#build-conveyor-button");
+const upgradeSmelterButton = document.querySelector<HTMLButtonElement>("#upgrade-smelter-button");
 let iron = 0;
 let steel = 0;
 let oreBuffer = 0;
@@ -389,6 +391,7 @@ let conveyorTimer = 0;
 let conveyorParts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
 let conveyorCargo: ReturnType<typeof MeshBuilder.CreatePolyhedron>[] = [];
 let smelterBuilt = false;
+let smelterLevel = 1;
 let smelterTimer = 0;
 let smelterParts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
 let smelterGlow: ReturnType<typeof MeshBuilder.CreateSphere> | null = null;
@@ -407,6 +410,7 @@ type SaveData = {
   machineLevels?: number[];
   steel?: number;
   smelterBuilt?: boolean;
+  smelterLevel?: number;
   oreBuffer?: number;
   conveyorBuilt?: boolean;
 };
@@ -588,7 +592,8 @@ function saveGame(): void {
     steel,
     oreBuffer,
     conveyorBuilt,
-    smelterBuilt
+    smelterBuilt,
+    smelterLevel
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -617,7 +622,12 @@ function loadGame(): void {
     if (typeof data.oreBuffer === "number" && Number.isFinite(data.oreBuffer)) {
       oreBuffer = Math.max(0, Math.floor(data.oreBuffer));
     }
-    if (data.smelterBuilt === true) createSmelter();
+    if (data.smelterBuilt === true) {
+      createSmelter();
+      if (typeof data.smelterLevel === "number" && Number.isFinite(data.smelterLevel)) {
+        smelterLevel = Math.max(1, Math.min(3, Math.floor(data.smelterLevel)));
+      }
+    }
     if (data.conveyorBuilt === true && data.smelterBuilt === true) createConveyor();
     if (data.player && Number.isFinite(data.player.x) && Number.isFinite(data.player.z)) {
       player.position.x = Math.max(-42, Math.min(42, data.player.x));
@@ -771,6 +781,29 @@ function buildConveyorBelt(): void {
 }
 buildConveyorButton?.addEventListener("click", buildConveyorBelt);
 
+function upgradeSmelter(): void {
+  const distance = Math.hypot(player.position.x + 3.8, player.position.z - 1.2);
+  if (!smelterBuilt || distance > SMELTER_RANGE) {
+    if (statusText) statusText.textContent = "Podejdź do huty, aby ją ulepszyć";
+    return;
+  }
+  if (smelterLevel >= 3) {
+    if (statusText) statusText.textContent = "Huta ma już maksymalny poziom";
+    return;
+  }
+  const cost = SMELTER_UPGRADE_COSTS[smelterLevel];
+  if (steel < cost) {
+    if (statusText) statusText.textContent = "Potrzeba " + cost + " stali na ulepszenie huty";
+    return;
+  }
+  steel -= cost;
+  smelterLevel += 1;
+  if (steelCounter) steelCounter.textContent = String(steel);
+  if (statusText) statusText.textContent = "Huta ulepszona do poziomu " + smelterLevel + " · szybsza produkcja stali";
+  saveGame();
+}
+upgradeSmelterButton?.addEventListener("click", upgradeSmelter);
+
 scene.onBeforeRenderObservable.add(() => {
   const deltaSeconds = Math.min(engine.getDeltaTime() / 1000, 0.05);
   // Wejście: góra joysticka = przód, lewo joysticka = lewo względem kamery.
@@ -824,7 +857,9 @@ scene.onBeforeRenderObservable.add(() => {
     } else if (activeMenuTab === "machines" && nearbyOre) {
       menuPanelMessage.textContent = "Główne złoże żelaza · nieograniczona ilość. Możesz wydobywać ręcznie lub kupić koparkę.";
     } else if (activeMenuTab === "machines" && atSmelterSite) {
-      menuPanelMessage.textContent = smelterBuilt ? "Stoisz przy hucie. Możesz rozbudować transport surowców." : "Miejsce pod budowę huty. Podejdź bliżej, aby ją kupić.";
+      menuPanelMessage.textContent = smelterBuilt
+        ? "Huta poziom " + smelterLevel + "/3 · 10 stali co " + (SMELTER_CYCLE_SECONDS / smelterLevel).toFixed(1) + " s. Możesz ulepszyć produkcję lub transport."
+        : "Miejsce pod budowę huty. Podejdź bliżej, aby ją kupić.";
     } else {
       menuPanelMessage.textContent = "Witaj w Terra Industries. Podejdź do maszyny i wybierz zakładkę MASZYNY, aby zobaczyć dostępne działania.";
     }
@@ -854,7 +889,17 @@ scene.onBeforeRenderObservable.add(() => {
     buildSmelterButton.textContent = "KUP HUTĘ · " + SMELTER_COST + " ŻELAZA";
   }
   if (smelterState) {
-    smelterState.textContent = !smelterBuilt ? "BRAK" : (conveyorBuilt ? oreBuffer : iron) >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ";
+    smelterState.textContent = !smelterBuilt ? "BRAK" : "P" + smelterLevel + " · " + ((conveyorBuilt ? oreBuffer : iron) >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ");
+  }
+  if (upgradeSmelterButton) {
+    const atSmelterSite = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
+    const canUpgrade = smelterBuilt && smelterLevel < 3;
+    const cost = SMELTER_UPGRADE_COSTS[smelterLevel] ?? 0;
+    upgradeSmelterButton.hidden = !atSmelterSite || !smelterBuilt;
+    upgradeSmelterButton.disabled = !canUpgrade || steel < cost;
+    upgradeSmelterButton.textContent = smelterLevel >= 3
+      ? "HUTA · MAKS. POZIOM 3"
+      : "ULEPSZ HUTĘ · " + cost + " STALI · POZ. " + smelterLevel + "/3";
   }
   if (buildConveyorButton) {
     const atSmelterSite = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
@@ -887,7 +932,7 @@ scene.onBeforeRenderObservable.add(() => {
       ? new Color3(0.9 * pulse, 0.16 * pulse, 0.015)
       : new Color3(0.08, 0.025, 0.005);
     if (active && smelterTimer >= SMELTER_CYCLE_SECONDS) {
-      smelterTimer -= SMELTER_CYCLE_SECONDS;
+      smelterTimer -= SMELTER_CYCLE_SECONDS / smelterLevel;
       if (conveyorBuilt) oreBuffer -= SMELTER_IRON_PER_INGOT;
       else iron -= SMELTER_IRON_PER_INGOT;
       steel += 10;
