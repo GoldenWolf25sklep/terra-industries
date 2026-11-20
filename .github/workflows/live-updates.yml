@@ -1,0 +1,35 @@
+name: Publish Terra Industries live update
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: terra-industries-live-update
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Build game bundle
+        run: npm run build
+      - name: Publish OTA bundle to Capgo
+        if: env.CAPGO_TOKEN != ''
+        env:
+          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
+        run: npx @capgo/cli@latest bundle upload -a "$CAPGO_TOKEN" --channel production
+      - name: Explain missing Capgo token
+        if: env.CAPGO_TOKEN == ''
+        env:
+          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
+        run: echo "OTA bundle built, but not published. Add CAPGO_TOKEN in GitHub repository Actions secrets."
