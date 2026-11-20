@@ -124,6 +124,9 @@ furnaceMetalMat.diffuseColor = new Color3(0.42, 0.48, 0.47);
 const furnaceGlowMat = new StandardMaterial("furnace-glow-material", scene);
 furnaceGlowMat.diffuseColor = new Color3(1, 0.31, 0.055);
 furnaceGlowMat.emissiveColor = new Color3(0.9, 0.16, 0.015);
+const smelterSiteMat = new StandardMaterial("smelter-site-material", scene);
+smelterSiteMat.diffuseColor = new Color3(0.76, 0.55, 0.25);
+smelterSiteMat.emissiveColor = new Color3(0.12, 0.065, 0.018);
 const MACHINE_COST = 8;
 const MACHINE_CYCLE_SECONDS = 4;
 const SMELTER_COST = 12;
@@ -154,6 +157,10 @@ orePositions.forEach((position, index) => {
   marker.material = oreGlowMat;
   oreNodes.push({ mesh: ore, marker, amount: 5, machineBuilt: false, machineParts: [], machineTimer: 0 });
 });
+const smelterSiteMarker = MeshBuilder.CreateTorus("smelter-build-site", { diameter: 4.5, thickness: 0.13, tessellation: 40 }, scene);
+smelterSiteMarker.position.set(-3.8, 0.09, 1.2);
+smelterSiteMarker.rotation.x = Math.PI / 2;
+smelterSiteMarker.material = smelterSiteMat;
 
 // Górnik w kombinezonie roboczym. Niewidoczny kapsułowy korzeń zachowuje stabilny punkt ruchu.
 const player = MeshBuilder.CreateCapsule("player-root", { height: 2.1, radius: 0.48 }, scene);
@@ -264,6 +271,7 @@ const interactButton = document.querySelector<HTMLButtonElement>("#interact-butt
 const buildMachineButton = document.querySelector<HTMLButtonElement>("#build-machine-button");
 const buildSmelterButton = document.querySelector<HTMLButtonElement>("#build-smelter-button");
 const steelCounter = document.querySelector<HTMLElement>("#steel-count");
+const smelterState = document.querySelector<HTMLElement>("#smelter-state");
 let iron = 0;
 let steel = 0;
 let smelterBuilt = false;
@@ -399,6 +407,7 @@ function createSmelter(): void {
   parts.push(vent);
   smelterParts = parts;
   smelterBuilt = true;
+  smelterSiteMarker.setEnabled(false);
   smelterTimer = 0;
 }
 
@@ -594,6 +603,10 @@ scene.onBeforeRenderObservable.add(() => {
       ? "HUTA DZIAŁA"
       : "ZBUDUJ HUTĘ · " + SMELTER_COST + " ŻELAZA";
   }
+  if (smelterState) {
+    smelterState.textContent = !smelterBuilt ? "BRAK" : iron >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ";
+  }
+  if (!smelterBuilt) smelterSiteMarker.rotation.y += deltaSeconds * 0.12;
   if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
     statusText.textContent = "Złoże żelaza w zasięgu · " + nearbyOre.amount + " jednostek";
   }
