@@ -100,7 +100,8 @@ const keyMap: Record<string, string> = {
   KeyW: "forward", ArrowUp: "forward", KeyS: "back", ArrowDown: "back",
   KeyA: "left", ArrowLeft: "left", KeyD: "right", ArrowRight: "right"
 };
-// Klawiatura pozostaje pomocnicza w środowisku developerskim; docelowe sterowanie jest dotykowe.\nwindow.addEventListener("keydown", event => {
+// Klawiatura pozostaje pomocnicza w środowisku developerskim; docelowe sterowanie jest dotykowe.
+window.addEventListener("keydown", event => {
   const action = keyMap[event.code];
   if (action) { pressed.add(action); event.preventDefault(); }
   if (event.code === "KeyE") collectOre();
