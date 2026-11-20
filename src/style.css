@@ -50,3 +50,33 @@ html,body,#app{overscroll-behavior:none;user-select:none;-webkit-user-select:non
 .build-machine-button:disabled{opacity:.48;filter:saturate(.45)}
 .build-machine-button:active:not(:disabled){background:rgba(135,91,39,.95)}
 @media(max-width:480px){.action-buttons{right:12px;bottom:calc(132px + var(--safe-bottom));gap:7px}.action-buttons .interact-button{min-width:138px;padding:11px 9px}.build-machine-button{min-height:46px;padding:10px;font-size:9px}}
+
+/* Warstwa wizualna HUD — czytelna na ekranach telefonów */
+.hud{
+  border-color:rgba(177,211,195,.22);
+  background:linear-gradient(145deg,rgba(15,30,34,.9),rgba(9,19,24,.78));
+  box-shadow:0 12px 34px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.045);
+}
+.hud-label{color:#a4c0b1}
+.hud-title{letter-spacing:.015em;text-shadow:0 2px 12px rgba(0,0,0,.3)}
+.hud-stats{padding-top:10px;border-top:1px solid rgba(192,219,205,.12)}
+.mobile-controls button{
+  border-color:rgba(204,224,214,.22);
+  background:linear-gradient(155deg,rgba(27,45,48,.88),rgba(12,24,29,.88));
+  box-shadow:0 5px 16px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.06);
+  -webkit-tap-highlight-color:transparent;
+}
+.mobile-controls button:active{transform:translateY(1px);background:rgba(76,128,91,.94)}
+.action-buttons .interact-button,.build-machine-button{
+  box-shadow:0 7px 18px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.08);
+  -webkit-tap-highlight-color:transparent;
+}
+.build-machine-button{background:linear-gradient(145deg,rgba(112,76,35,.96),rgba(70,48,27,.96))}
+.build-machine-button:active:not(:disabled){transform:translateY(1px)}
+.help{border:1px solid rgba(193,216,205,.1);backdrop-filter:blur(8px)}
+.crosshair{opacity:.42;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+@media(max-width:480px){
+  .hud{backdrop-filter:blur(15px)}
+  .action-buttons{max-width:54vw}
+  .action-buttons .interact-button,.build-machine-button{font-size:9px;letter-spacing:.025em}
+}
