@@ -55,7 +55,7 @@ groundMat.specularColor = Color3.Black();
 // Proceduralna tekstura ziemi: drobne naturalne przebarwienia zamiast płaskiej zielonej planszy.
 const terrainTexture = new DynamicTexture("terrain-ground-texture", { width: 512, height: 512 }, scene, false);
 const terrainContext = terrainTexture.getContext();
-const terrainPixels = terrainContext.createImageData(512, 512);
+const terrainPixels = terrainContext.getImageData(0, 0, 512, 512);
 let terrainSeed = 173;
 for (let y = 0; y < 512; y++) {
   for (let x = 0; x < 512; x++) {
