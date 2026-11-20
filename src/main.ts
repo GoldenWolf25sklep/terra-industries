@@ -368,6 +368,7 @@ const machineActions = document.querySelector<HTMLElement>("#machine-actions");
 const menuButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".bottom-menu-button"));
 let activeMenuTab = "home";
 let menuPanelOpen = false;
+const machinesMenuButton = menuButtons.find(button => button.dataset.tab === "machines");
 menuButtons.forEach(button => button.addEventListener("click", () => {
   const tab = button.dataset.tab ?? "home";
   if (activeMenuTab === tab && menuPanelOpen) menuPanelOpen = false;
@@ -807,6 +808,8 @@ scene.onBeforeRenderObservable.add(() => {
   nearbyOre = findNearbyOre();
   const atSmelterSite = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
   const nearAnyMachine = !!nearbyOre || atSmelterSite;
+  machinesMenuButton?.classList.toggle("nearby", nearAnyMachine);
+  machinesMenuButton?.setAttribute("aria-label", nearAnyMachine ? "Maszyny — obiekt w zasięgu" : "Maszyny");
   if (machinePanel) machinePanel.hidden = !menuPanelOpen;
   if (menuPanelTitle && menuPanelMessage && machineActions) {
     const tabTitle = activeMenuTab === "machines" ? "MASZYNY I ROZBUDOWA" : activeMenuTab === "storage" ? "MAGAZYN SUROWCÓW" : "CENTRUM OPERACYJNE";
@@ -864,8 +867,14 @@ scene.onBeforeRenderObservable.add(() => {
   }
   if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
   if (!smelterBuilt) smelterSiteMarker.rotation.y += deltaSeconds * 0.12;
-  if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
-    statusText.textContent = "Główne złoże żelaza w zasięgu · bez limitu";
+  if (nearbyOre && statusText) {
+    statusText.textContent = nearbyOre.machineBuilt
+      ? "Koparka poziom " + nearbyOre.machineLevel + "/3 w zasięgu · otwórz MASZYNY, aby ją ulepszyć"
+      : "Główne złoże żelaza w zasięgu · bez limitu · otwórz MASZYNY";
+  } else if (atSmelterSite && statusText) {
+    statusText.textContent = smelterBuilt
+      ? "Huta w zasięgu · otwórz MASZYNY, aby zarządzać transportem"
+      : "Miejsce budowy huty w zasięgu · otwórz MASZYNY";
   }
   if (smelterBuilt && smelterGlow) {
     const smelterInput = conveyorBuilt ? oreBuffer : iron;
