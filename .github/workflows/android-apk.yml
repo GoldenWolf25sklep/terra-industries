@@ -30,6 +30,12 @@ jobs:
         run: npx cap add android
       - name: Sync Capacitor
         run: npx cap sync android
+      - name: Update Android build tools for API 35
+        working-directory: android
+        run: |
+          sed -i 's/com.android.tools.build:gradle:8.2.1/com.android.tools.build:gradle:8.6.1/' build.gradle
+          sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/' variables.gradle
+          sed -i 's/gradle-8.2.1-all.zip/gradle-8.7-all.zip/' gradle/wrapper/gradle-wrapper.properties
       - name: Build debug APK
         working-directory: android
         run: chmod +x gradlew && ./gradlew assembleDebug
