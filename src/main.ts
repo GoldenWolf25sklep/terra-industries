@@ -817,7 +817,7 @@ scene.onBeforeRenderObservable.add(() => {
     } else if (activeMenuTab === "machines" && !nearAnyMachine) {
       menuPanelMessage.textContent = "Podejdź do koparki przy złożu albo do oznaczonego miejsca huty. Dopiero wtedy pojawią się zakupy i ulepszenia.";
     } else if (activeMenuTab === "machines" && nearbyOre?.machineBuilt) {
-      menuPanelMessage.textContent = "Koparka poziom " + nearbyOre.machineLevel + "/3 · wydobycie: " + (10 * nearbyOre.machineLevel) + " żelaza co " + (MACHINE_CYCLE_SECONDS / nearbyOre.machineLevel).toFixed(1) + " s.";
+      menuPanelMessage.textContent = "Koparka poziom " + nearbyOre.machineLevel + "/3 · wydobywa 10 żelaza co " + (MACHINE_CYCLE_SECONDS / nearbyOre.machineLevel).toFixed(1) + " s.";
     } else if (activeMenuTab === "machines" && nearbyOre) {
       menuPanelMessage.textContent = "Główne złoże żelaza · nieograniczona ilość. Możesz wydobywać ręcznie lub kupić koparkę.";
     } else if (activeMenuTab === "machines" && atSmelterSite) {
@@ -847,11 +847,8 @@ scene.onBeforeRenderObservable.add(() => {
   if (buildSmelterButton) {
     const atSmelterSite = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
     buildSmelterButton.hidden = !atSmelterSite || smelterBuilt;
-    const atBase = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
-    buildSmelterButton.disabled = smelterBuilt || !atBase || iron < SMELTER_COST;
-    buildSmelterButton.textContent = smelterBuilt
-      ? "HUTA DZIAŁA"
-      : "ZBUDUJ HUTĘ · " + SMELTER_COST + " ŻELAZA";
+    buildSmelterButton.disabled = smelterBuilt || !atSmelterSite || iron < SMELTER_COST;
+    buildSmelterButton.textContent = "KUP HUTĘ · " + SMELTER_COST + " ŻELAZA";
   }
   if (smelterState) {
     smelterState.textContent = !smelterBuilt ? "BRAK" : (conveyorBuilt ? oreBuffer : iron) >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ";
