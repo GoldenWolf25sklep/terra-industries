@@ -7,6 +7,7 @@ const config: CapacitorConfig = {
   bundledWebRuntime: false,
   plugins: {
     CapacitorUpdater: {
+      appId: "com.terraindustries.game",
       autoUpdate: "atBackground",
       version: "1.0.0"
     }
