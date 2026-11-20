@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorUpdater: {
       appId: "com.terraindustries.game",
-      autoUpdate: "atBackground",
+      autoUpdate: "off",
       version: "1.0.0"
     }
   }
