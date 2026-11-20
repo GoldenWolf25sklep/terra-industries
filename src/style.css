@@ -80,3 +80,21 @@ html,body,#app{overscroll-behavior:none;user-select:none;-webkit-user-select:non
   .action-buttons{max-width:54vw}
   .action-buttons .interact-button,.build-machine-button{font-size:9px;letter-spacing:.025em}
 }
+
+/* Huta i drugi surowiec w mobilnym panelu produkcji */
+.hud-stats{flex-wrap:wrap;column-gap:15px;row-gap:7px}
+.build-smelter-button{
+  min-height:46px;max-width:100%;padding:10px 13px;
+  border:1px solid rgba(150,190,198,.58);border-radius:13px;
+  background:linear-gradient(145deg,rgba(57,86,91,.97),rgba(25,44,51,.97));
+  color:#e6f5f3;font-size:10px;font-weight:800;letter-spacing:.04em;
+  touch-action:manipulation;
+  box-shadow:0 7px 18px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.08);
+  -webkit-tap-highlight-color:transparent;
+}
+.build-smelter-button:disabled{opacity:.48;filter:saturate(.45)}
+.build-smelter-button:active:not(:disabled){transform:translateY(1px);background:rgba(65,104,110,.98)}
+@media(max-width:480px){
+  .build-smelter-button{min-height:44px;padding:9px 10px;font-size:9px}
+  .action-buttons{max-width:56vw}
+}
