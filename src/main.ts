@@ -674,21 +674,31 @@ buildConveyorButton?.addEventListener("click", buildConveyorBelt);
 
 scene.onBeforeRenderObservable.add(() => {
   const deltaSeconds = Math.min(engine.getDeltaTime() / 1000, 0.05);
-  const forward = Number(pressed.has("forward")) - Number(pressed.has("back")) - joystickY;
-  const sideways = Number(pressed.has("right")) - Number(pressed.has("left")) + joystickX;
-  const isMoving = Math.abs(forward) > 0.05 || Math.abs(sideways) > 0.05;
+  // Wejście: góra joysticka = przód, lewo joysticka = lewo względem kamery.
+  const forwardInput = Number(pressed.has("forward")) - Number(pressed.has("back")) - joystickY;
+  const sidewaysInput = Number(pressed.has("right")) - Number(pressed.has("left")) + joystickX;
+  const inputLength = Math.hypot(forwardInput, sidewaysInput);
+  const isMoving = inputLength > 0.08;
   const walkPhase = performance.now() * 0.009;
   leftLeg.rotation.x = isMoving ? Math.sin(walkPhase) * 0.42 : 0;
   rightLeg.rotation.x = isMoving ? -Math.sin(walkPhase) * 0.42 : 0;
   leftArm.rotation.x = isMoving ? -Math.sin(walkPhase) * 0.28 : 0;
   rightArm.rotation.x = isMoving ? Math.sin(walkPhase) * 0.28 : 0;
   if (isMoving) {
+    // Kierunek kamery w płaszczyźnie XZ. Poprzednia wersja miała zamienione
+    // osie sin/cos, przez co ruch do przodu szedł bokiem, a lewo/prawo myliło się.
+    const forwardX = -Math.cos(camera.alpha);
+    const forwardZ = -Math.sin(camera.alpha);
+    const rightX = -Math.sin(camera.alpha);
+    const rightZ = Math.cos(camera.alpha);
     const direction = new Vector3(
-      -Math.sin(camera.alpha) * forward + Math.cos(camera.alpha) * sideways,
+      forwardX * forwardInput + rightX * sidewaysInput,
       0,
-      -Math.cos(camera.alpha) * forward - Math.sin(camera.alpha) * sideways
-    ).normalize();
-    player.position.addInPlace(direction.scale(deltaSeconds * 5.2));
+      forwardZ * forwardInput + rightZ * sidewaysInput
+    );
+    const speedFactor = Math.min(1, inputLength);
+    direction.normalize();
+    player.position.addInPlace(direction.scale(deltaSeconds * 5.2 * speedFactor));
     player.position.x = Math.max(-42, Math.min(42, player.position.x));
     player.position.z = Math.max(-42, Math.min(42, player.position.z));
     player.rotation.y = Math.atan2(direction.x, direction.z);
