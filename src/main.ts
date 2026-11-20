@@ -129,13 +129,13 @@ furnaceGlowMat.emissiveColor = new Color3(0.9, 0.16, 0.015);
 const smelterSiteMat = new StandardMaterial("smelter-site-material", scene);
 smelterSiteMat.diffuseColor = new Color3(0.76, 0.55, 0.25);
 smelterSiteMat.emissiveColor = new Color3(0.12, 0.065, 0.018);
-const MACHINE_COST = 8;
+const MACHINE_COST = 100;
 const MACHINE_CYCLE_SECONDS = 4;
-const SMELTER_COST = 12;
-const SMELTER_IRON_PER_INGOT = 5;
+const SMELTER_COST = 250;
+const SMELTER_IRON_PER_INGOT = 50;
 const SMELTER_CYCLE_SECONDS = 8;
 const SMELTER_RANGE = 5.5;
-const CONVEYOR_STEEL_COST = 4;
+const CONVEYOR_STEEL_COST = 150;
 const CONVEYOR_CYCLE_SECONDS = 4;
 type OreNode = {
   mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>;
@@ -147,24 +147,19 @@ type OreNode = {
   machineTimer: number;
 };
 const oreNodes: OreNode[] = [];
-const orePositions = [
-  new Vector3(6, 0, 4), new Vector3(12, 0, 1), new Vector3(8, 0, -8),
-  new Vector3(1, 0, -12), new Vector3(-9, 0, -8), new Vector3(-12, 0, 2),
-  new Vector3(-8, 0, 11), new Vector3(2, 0, 14), new Vector3(16, 0, 10),
-  new Vector3(-17, 0, -12), new Vector3(18, 0, -14), new Vector3(-19, 0, 15)
-];
+const orePositions = [new Vector3(2.2, 0, 2.2)];
 orePositions.forEach((position, index) => {
-  const ore = MeshBuilder.CreatePolyhedron("iron-ore-" + index, { type: 1, size: 1.05 }, scene);
+  const ore = MeshBuilder.CreatePolyhedron("iron-ore-" + index, { type: 1, size: 2.15 }, scene);
   ore.position.set(position.x, 0.62, position.z);
-  ore.scaling.set(1.15, 0.8, 1);
+  ore.scaling.set(1.55, 0.92, 1.42);
   ore.rotation.set(index * 0.17, index * 0.61, index * 0.11);
   ore.material = oreMat;
-  const marker = MeshBuilder.CreateCylinder("ore-marker-" + index, { height: 0.08, diameter: 1.9, tessellation: 32 }, scene);
+  const marker = MeshBuilder.CreateCylinder("ore-marker-" + index, { height: 0.1, diameter: 4.4, tessellation: 40 }, scene);
   marker.position.set(position.x, 0.06, position.z);
   marker.material = oreGlowMat;
   // Unoszący się pierścień jest czytelnym znacznikiem złoża także z większej odległości.
-  const beacon = MeshBuilder.CreateTorus("ore-beacon-" + index, { diameter: 2.35, thickness: 0.085, tessellation: 24 }, scene);
-  beacon.position.set(position.x, 2.25, position.z);
+  const beacon = MeshBuilder.CreateTorus("ore-beacon-" + index, { diameter: 5.25, thickness: 0.11, tessellation: 32 }, scene);
+  beacon.position.set(position.x, 2.8, position.z);
   beacon.rotation.x = Math.PI / 2;
   beacon.material = oreGlowMat;
   oreNodes.push({ mesh: ore, marker, beacon, amount: -1, machineBuilt: false, machineParts: [], machineTimer: 0 });
@@ -461,7 +456,7 @@ function createSmelter(): void {
 
 function createConveyor(): void {
   if (conveyorBuilt) return;
-  const start = new Vector3(5, 0, 4);
+  const start = new Vector3(2.2, 0, 2.2);
   const end = new Vector3(-3.8, 0, 1.2);
   const delta = end.subtract(start);
   const length = delta.length();
@@ -591,12 +586,12 @@ function findNearbyOre(): OreNode | null {
 function collectOre(): void {
   nearbyOre = findNearbyOre();
   if (!nearbyOre) {
-    if (statusText) statusText.textContent = "Podejdź bliżej do złoża żelaza";
+    if (statusText) statusText.textContent = "Podejdź do głównego złoża żelaza";
     return;
   }
-  iron += 1;
+  iron += 10;
   if (ironCounter) ironCounter.textContent = String(iron);
-  if (statusText) statusText.textContent = "Wydobyto 1 rudę · złoże bez limitu";
+  if (statusText) statusText.textContent = "Wydobyto 10 jednostek żelaza · główne złoże bez limitu";
   saveGame();
 }
 
@@ -605,7 +600,7 @@ interactButton?.addEventListener("click", collectOre);
 function buildMiningMachine(): void {
   nearbyOre = findNearbyOre();
   if (!nearbyOre) {
-    if (statusText) statusText.textContent = "Podejdź do złoża, aby ustawić koparkę";
+    if (statusText) statusText.textContent = "Podejdź do głównego złoża, aby ustawić koparkę";
     return;
   }
   if (nearbyOre.machineBuilt) {
@@ -642,7 +637,7 @@ function buildSmelter(): void {
   iron -= SMELTER_COST;
   if (ironCounter) ironCounter.textContent = String(iron);
   createSmelter();
-  if (statusText) statusText.textContent = "Huta uruchomiona · przetwarza 5 żelaza na 1 sztabkę";
+  if (statusText) statusText.textContent = "Huta uruchomiona · przetwarza 50 żelaza na 10 stali";
   saveGame();
 }
 buildSmelterButton?.addEventListener("click", buildSmelter);
@@ -667,7 +662,7 @@ function buildConveyorBelt(): void {
   steel -= CONVEYOR_STEEL_COST;
   if (steelCounter) steelCounter.textContent = String(steel);
   createConveyor();
-  if (statusText) statusText.textContent = "Taśmociąg podłączony · ruda trafia prosto do zasobnika huty";
+  if (statusText) statusText.textContent = "Taśmociąg podłączony · surowiec trafia prosto do zasobnika huty";
   saveGame();
 }
 buildConveyorButton?.addEventListener("click", buildConveyorBelt);
@@ -734,7 +729,7 @@ scene.onBeforeRenderObservable.add(() => {
   if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
   if (!smelterBuilt) smelterSiteMarker.rotation.y += deltaSeconds * 0.12;
   if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
-    statusText.textContent = "Złoże żelaza w zasięgu · bez limitu";
+    statusText.textContent = "Główne złoże żelaza w zasięgu · bez limitu";
   }
   if (smelterBuilt && smelterGlow) {
     const smelterInput = conveyorBuilt ? oreBuffer : iron;
@@ -750,16 +745,16 @@ scene.onBeforeRenderObservable.add(() => {
       smelterTimer -= SMELTER_CYCLE_SECONDS;
       if (conveyorBuilt) oreBuffer -= SMELTER_IRON_PER_INGOT;
       else iron -= SMELTER_IRON_PER_INGOT;
-      steel += 1;
+      steel += 10;
       if (ironCounter) ironCounter.textContent = String(iron);
       if (steelCounter) steelCounter.textContent = String(steel);
       if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
-      if (statusText) statusText.textContent = "Huta wyprodukowała 1 stalową sztabkę";
+      if (statusText) statusText.textContent = "Huta wyprodukowała 10 jednostek stali";
       saveGame();
     }
   }
   if (conveyorBuilt) {
-    const start = new Vector3(5, 0, 4);
+    const start = new Vector3(2.2, 0, 2.2);
     const end = new Vector3(-3.8, 0, 1.2);
     const travel = (performance.now() * 0.00016) % 1;
     conveyorCargo.forEach((cargo, index) => {
@@ -771,18 +766,18 @@ scene.onBeforeRenderObservable.add(() => {
   }
   for (const node of oreNodes) {
     node.beacon.rotation.y += deltaSeconds * 0.42;
-    node.beacon.position.y = 2.25 + Math.sin(performance.now() * 0.0018 + node.mesh.position.x) * 0.12;
+    node.beacon.position.y = 2.8 + Math.sin(performance.now() * 0.0018 + node.mesh.position.x) * 0.12;
     if (!node.machineBuilt || node.amount === 0) continue;
     if (node.machineParts[3]) node.machineParts[3].rotation.y += deltaSeconds * 1.8;
     if (node.machineParts[6]) node.machineParts[6].rotation.y += deltaSeconds * 2.5;
     node.machineTimer += deltaSeconds;
     if (node.machineTimer >= MACHINE_CYCLE_SECONDS) {
       node.machineTimer -= MACHINE_CYCLE_SECONDS;
-      if (conveyorBuilt && node === oreNodes[0]) oreBuffer += 1;
-      else iron += 1;
+      if (conveyorBuilt && node === oreNodes[0]) oreBuffer += 10;
+      else iron += 10;
       if (ironCounter) ironCounter.textContent = String(iron);
       if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
-      if (statusText) statusText.textContent = "Koparka wydobyła 1 rudę żelaza";
+      if (statusText) statusText.textContent = "Koparka wydobyła 10 jednostek żelaza";
       saveGame();
     }
   }
