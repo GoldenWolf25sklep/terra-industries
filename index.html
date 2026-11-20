@@ -25,7 +25,22 @@
         <div id="joystick-knob" class="joystick-knob"></div>
         <span class="joystick-caption">RUCH</span>
       </div>
-      <div class="action-buttons"><button id="interact-button" class="interact-button">ZBIERZ RUDĘ · E</button><button id="build-machine-button" class="build-machine-button" disabled>ZBUDUJ KOPARKĘ · 100 ŻELAZA</button><button id="build-smelter-button" class="build-smelter-button" disabled>ZBUDUJ HUTĘ · 250 ŻELAZA</button><button id="build-conveyor-button" class="build-conveyor-button" disabled>ZBUDUJ TAŚMOCIĄG · 150 STALI</button></div>
+      <section id="machine-panel" class="machine-panel" hidden aria-live="polite">
+        <div id="menu-panel-title" class="menu-panel-title">CENTRUM OPERACYJNE</div>
+        <div id="menu-panel-message" class="menu-panel-message">Wybierz zakładkę lub podejdź do maszyny.</div>
+        <div id="machine-actions" class="machine-actions" hidden>
+          <button id="interact-button" class="interact-button" hidden>WYDOBĄDŹ RUDĘ · E</button>
+          <button id="build-machine-button" class="build-machine-button" hidden disabled>KUP KOPARKĘ · 100 ŻELAZA</button>
+          <button id="upgrade-machine-button" class="upgrade-machine-button" hidden disabled>ULEPSZ KOPARKĘ</button>
+          <button id="build-smelter-button" class="build-smelter-button" hidden disabled>KUP HUTĘ · 250 ŻELAZA</button>
+          <button id="build-conveyor-button" class="build-conveyor-button" hidden disabled>KUP TAŚMOCIĄG · 150 STALI</button>
+        </div>
+      </section>
+      <nav class="bottom-menu" aria-label="Menu główne">
+        <button class="bottom-menu-button active" data-tab="home" type="button"><span>⌂</span>BAZA</button>
+        <button class="bottom-menu-button" data-tab="machines" type="button"><span>⚙</span>MASZYNY</button>
+        <button class="bottom-menu-button" data-tab="storage" type="button"><span>▤</span>MAGAZYN</button>
+      </nav>
       <div class="crosshair">+</div>
     </div>
     <script type="module" src="/src/main.ts"></script>
