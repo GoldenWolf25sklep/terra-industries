@@ -15,7 +15,7 @@ const engine = new Engine(canvas, !mobileDevice, {
   adaptToDeviceRatio: true,
   powerPreference: "high-performance"
 });
-if (mobileDevice) engine.setHardwareScalingLevel(window.devicePixelRatio > 2 ? 1.5 : 1.25);
+if (mobileDevice) engine.setHardwareScalingLevel(window.devicePixelRatio > 2 ? 1.25 : 1);
 const scene = new Scene(engine);
 scene.clearColor = new Color4(0.035, 0.065, 0.07, 1);
 
@@ -145,8 +145,10 @@ type OreNode = {
 };
 const oreNodes: OreNode[] = [];
 const orePositions = [
-  new Vector3(5, 0, 4), new Vector3(7, 0, 5), new Vector3(4, 0, 7),
-  new Vector3(8, 0, 8), new Vector3(2, 0, 6), new Vector3(6, 0, 10)
+  new Vector3(6, 0, 4), new Vector3(12, 0, 1), new Vector3(8, 0, -8),
+  new Vector3(1, 0, -12), new Vector3(-9, 0, -8), new Vector3(-12, 0, 2),
+  new Vector3(-8, 0, 11), new Vector3(2, 0, 14), new Vector3(16, 0, 10),
+  new Vector3(-17, 0, -12), new Vector3(18, 0, -14), new Vector3(-19, 0, 15)
 ];
 orePositions.forEach((position, index) => {
   const ore = MeshBuilder.CreatePolyhedron("iron-ore-" + index, { type: 1, size: 1.05 }, scene);
@@ -157,7 +159,7 @@ orePositions.forEach((position, index) => {
   const marker = MeshBuilder.CreateCylinder("ore-marker-" + index, { height: 0.08, diameter: 1.9, tessellation: 32 }, scene);
   marker.position.set(position.x, 0.06, position.z);
   marker.material = oreGlowMat;
-  oreNodes.push({ mesh: ore, marker, amount: 5, machineBuilt: false, machineParts: [], machineTimer: 0 });
+  oreNodes.push({ mesh: ore, marker, amount: -1, machineBuilt: false, machineParts: [], machineTimer: 0 });
 });
 const smelterSiteMarker = MeshBuilder.CreateTorus("smelter-build-site", { diameter: 4.5, thickness: 0.13, tessellation: 40 }, scene);
 smelterSiteMarker.position.set(-3.8, 0.09, 1.2);
@@ -239,6 +241,43 @@ camera.attachControl(canvas, true);
 camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
 
 const pressed = new Set<string>();
+const moveJoystick = document.querySelector<HTMLDivElement>("#move-joystick");
+const joystickKnob = document.querySelector<HTMLDivElement>("#joystick-knob");
+let joystickX = 0;
+let joystickY = 0;
+let joystickPointerId: number | null = null;
+function updateJoystick(event: PointerEvent): void {
+  if (!moveJoystick || !joystickKnob) return;
+  const rect = moveJoystick.getBoundingClientRect();
+  const radius = Math.min(rect.width, rect.height) * 0.34;
+  let dx = (event.clientX - (rect.left + rect.width / 2)) / radius;
+  let dy = (event.clientY - (rect.top + rect.height / 2)) / radius;
+  const length = Math.hypot(dx, dy);
+  if (length > 1) { dx /= length; dy /= length; }
+  joystickX = dx;
+  joystickY = dy;
+  joystickKnob.style.left = (50 + dx * 34) + "%";
+  joystickKnob.style.top = (50 + dy * 34) + "%";
+}
+moveJoystick?.addEventListener("pointerdown", event => {
+  event.preventDefault();
+  joystickPointerId = event.pointerId;
+  moveJoystick.setPointerCapture(event.pointerId);
+  updateJoystick(event);
+});
+moveJoystick?.addEventListener("pointermove", event => {
+  if (event.pointerId === joystickPointerId) updateJoystick(event);
+});
+const releaseJoystick = (event: PointerEvent) => {
+  if (event.pointerId !== joystickPointerId) return;
+  joystickPointerId = null;
+  joystickX = 0;
+  joystickY = 0;
+  if (joystickKnob) { joystickKnob.style.left = "50%"; joystickKnob.style.top = "50%"; }
+};
+moveJoystick?.addEventListener("pointerup", releaseJoystick);
+moveJoystick?.addEventListener("pointercancel", releaseJoystick);
+moveJoystick?.addEventListener("lostpointercapture", releaseJoystick);
 const keyMap: Record<string, string> = {
   KeyW: "forward", ArrowUp: "forward", KeyS: "back", ArrowDown: "back",
   KeyA: "left", ArrowLeft: "left", KeyD: "right", ArrowRight: "right"
@@ -255,17 +294,7 @@ window.addEventListener("keyup", event => {
 });
 window.addEventListener("blur", () => pressed.clear());
 
-document.querySelectorAll<HTMLButtonElement>("[data-move]").forEach(button => {
-  const action = button.dataset.move;
-  if (!action) return;
-  const release = () => pressed.delete(action);
-  button.addEventListener("pointerdown", event => {
-    event.preventDefault(); pressed.add(action); button.setPointerCapture(event.pointerId);
-  });
-  button.addEventListener("pointerup", release);
-  button.addEventListener("pointercancel", release);
-  button.addEventListener("lostpointercapture", release);
-});
+// Ruch dotykowy obsługuje teraz analogowy joystick ekranowy.
 
 const ironCounter = document.querySelector<HTMLElement>("#iron-count");
 const statusText = document.querySelector<HTMLElement>("#interaction-status");
@@ -518,21 +547,12 @@ function loadGame(): void {
     }
     if (Array.isArray(data.oreAmounts)) {
       oreNodes.forEach((node, index) => {
-        const amount = data.oreAmounts?.[index];
-        if (typeof amount === "number" && Number.isFinite(amount)) {
-          node.amount = Math.max(0, Math.min(5, Math.floor(amount)));
-          if (node.amount === 0) {
-            node.mesh.setEnabled(false);
-            node.marker.setEnabled(false);
-          } else {
-            node.mesh.scaling.scaleInPlace(Math.pow(0.91, 5 - node.amount));
-          }
-        }
+        // Wszystkie złoża są teraz bezterminowe — także w starszych zapisach.
       });
     }
     if (Array.isArray(data.machines)) {
       oreNodes.forEach((node, index) => {
-        if (data.machines?.[index] === true && node.amount > 0) createMiningMachine(node);
+        if (data.machines?.[index] === true && node.amount !== 0) createMiningMachine(node);
       });
     }
     if (ironCounter) ironCounter.textContent = String(iron);
@@ -553,7 +573,7 @@ function findNearbyOre(): OreNode | null {
   let nearest: OreNode | null = null;
   let nearestDistance = INTERACTION_RANGE;
   for (const node of oreNodes) {
-    if (node.amount <= 0) continue;
+    if (node.amount === 0) continue;
     const distance = Vector3.Distance(player.position, node.mesh.position);
     if (distance < nearestDistance) { nearest = node; nearestDistance = distance; }
   }
@@ -566,17 +586,9 @@ function collectOre(): void {
     if (statusText) statusText.textContent = "Podejdź bliżej do złoża żelaza";
     return;
   }
-  nearbyOre.amount -= 1;
   iron += 1;
   if (ironCounter) ironCounter.textContent = String(iron);
-  nearbyOre.mesh.scaling.scaleInPlace(0.91);
-  if (nearbyOre.amount <= 0) {
-    nearbyOre.mesh.setEnabled(false);
-    nearbyOre.marker.setEnabled(false);
-    if (statusText) statusText.textContent = "Złoże wyczerpane · poszukaj kolejnego";
-  } else if (statusText) {
-    statusText.textContent = "Wydobyto 1 rudę · pozostało w złożu: " + nearbyOre.amount;
-  }
+  if (statusText) statusText.textContent = "Wydobyto 1 rudę · złoże bez limitu";
   saveGame();
 }
 
@@ -632,7 +644,7 @@ function buildConveyorBelt(): void {
     if (statusText) statusText.textContent = "Najpierw zbuduj hutę";
     return;
   }
-  if (!oreNodes[0].machineBuilt || oreNodes[0].amount <= 0) {
+  if (!oreNodes[0].machineBuilt || oreNodes[0].amount === 0) {
     if (statusText) statusText.textContent = "Najpierw uruchom koparkę przy oznaczonym złożu";
     return;
   }
@@ -654,9 +666,9 @@ buildConveyorButton?.addEventListener("click", buildConveyorBelt);
 
 scene.onBeforeRenderObservable.add(() => {
   const deltaSeconds = Math.min(engine.getDeltaTime() / 1000, 0.05);
-  const forward = Number(pressed.has("forward")) - Number(pressed.has("back"));
-  const sideways = Number(pressed.has("right")) - Number(pressed.has("left"));
-  const isMoving = forward !== 0 || sideways !== 0;
+  const forward = Number(pressed.has("forward")) - Number(pressed.has("back")) - joystickY;
+  const sideways = Number(pressed.has("right")) - Number(pressed.has("left")) + joystickX;
+  const isMoving = Math.abs(forward) > 0.05 || Math.abs(sideways) > 0.05;
   const walkPhase = performance.now() * 0.009;
   leftLeg.rotation.x = isMoving ? Math.sin(walkPhase) * 0.42 : 0;
   rightLeg.rotation.x = isMoving ? -Math.sin(walkPhase) * 0.42 : 0;
@@ -704,7 +716,7 @@ scene.onBeforeRenderObservable.add(() => {
   if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
   if (!smelterBuilt) smelterSiteMarker.rotation.y += deltaSeconds * 0.12;
   if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
-    statusText.textContent = "Złoże żelaza w zasięgu · " + nearbyOre.amount + " jednostek";
+    statusText.textContent = "Złoże żelaza w zasięgu · bez limitu";
   }
   if (smelterBuilt && smelterGlow) {
     const smelterInput = conveyorBuilt ? oreBuffer : iron;
@@ -740,24 +752,16 @@ scene.onBeforeRenderObservable.add(() => {
     });
   }
   for (const node of oreNodes) {
-    if (!node.machineBuilt || node.amount <= 0) continue;
+    if (!node.machineBuilt || node.amount === 0) continue;
     if (node.machineParts[3]) node.machineParts[3].rotation.y += deltaSeconds * 1.8;
     if (node.machineParts[6]) node.machineParts[6].rotation.y += deltaSeconds * 2.5;
     node.machineTimer += deltaSeconds;
     if (node.machineTimer >= MACHINE_CYCLE_SECONDS) {
       node.machineTimer -= MACHINE_CYCLE_SECONDS;
-      node.amount -= 1;
       if (conveyorBuilt && node === oreNodes[0]) oreBuffer += 1;
       else iron += 1;
       if (ironCounter) ironCounter.textContent = String(iron);
       if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
-      node.mesh.scaling.scaleInPlace(0.91);
-      if (node.amount <= 0) {
-        node.mesh.setEnabled(false);
-        node.marker.setEnabled(false);
-        node.machineParts.forEach(part => part.setEnabled(false));
-        node.machineBuilt = false;
-      }
       if (statusText) statusText.textContent = "Koparka wydobyła 1 rudę żelaza";
       saveGame();
     }
@@ -768,5 +772,5 @@ engine.runRenderLoop(() => scene.render());
 window.addEventListener("resize", () => {
   engine.resize();
   const isPhone = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 800;
-  engine.setHardwareScalingLevel(isPhone ? (window.devicePixelRatio > 2 ? 1.5 : 1.25) : 1);
+  engine.setHardwareScalingLevel(isPhone ? (window.devicePixelRatio > 2 ? 1.25 : 1) : 1);
 });
