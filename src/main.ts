@@ -51,7 +51,7 @@ oreMat.specularColor = new Color3(0.12, 0.10, 0.08);
 const oreGlowMat = new StandardMaterial("ore-marker-material", scene);
 oreGlowMat.diffuseColor = new Color3(0.95, 0.62, 0.28);
 oreGlowMat.emissiveColor = new Color3(0.22, 0.09, 0.025);
-type OreNode = { mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>; amount: number };
+type OreNode = { mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>; marker: ReturnType<typeof MeshBuilder.CreateCylinder>; amount: number };
 const oreNodes: OreNode[] = [];
 const orePositions = [
   new Vector3(5, 0, 4), new Vector3(7, 0, 5), new Vector3(4, 0, 7),
@@ -66,7 +66,7 @@ orePositions.forEach((position, index) => {
   const marker = MeshBuilder.CreateCylinder("ore-marker-" + index, { height: 0.08, diameter: 1.9, tessellation: 32 }, scene);
   marker.position.set(position.x, 0.06, position.z);
   marker.material = oreGlowMat;
-  oreNodes.push({ mesh: ore, amount: 5 });
+  oreNodes.push({ mesh: ore, marker, amount: 5 });
 });
 
 const playerMat = new StandardMaterial("player-material", scene);
@@ -120,6 +120,77 @@ const interactButton = document.querySelector<HTMLButtonElement>("#interact-butt
 let iron = 0;
 let nearbyOre: OreNode | null = null;
 const INTERACTION_RANGE = 3.4;
+const SAVE_KEY = "terra-industries-save-v1";
+const saveStatus = document.querySelector<HTMLElement>("#save-status");
+
+type SaveData = {
+  version: 1;
+  iron: number;
+  player: { x: number; z: number };
+  oreAmounts: number[];
+};
+
+function updateSaveStatus(message: string): void {
+  if (saveStatus) saveStatus.textContent = message;
+}
+
+function saveGame(): void {
+  const data: SaveData = {
+    version: 1,
+    iron,
+    player: { x: player.position.x, z: player.position.z },
+    oreAmounts: oreNodes.map(node => node.amount)
+  };
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    updateSaveStatus("Zapisano automatycznie");
+  } catch (error) {
+    console.warn("Nie udało się zapisać postępu:", error);
+    updateSaveStatus("Zapis niedostępny");
+  }
+}
+
+function loadGame(): void {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) {
+      updateSaveStatus("Nowa gra · zapis lokalny");
+      return;
+    }
+    const data = JSON.parse(raw) as Partial<SaveData>;
+    if (data.version !== 1) throw new Error("Nieobsługiwana wersja zapisu");
+    if (typeof data.iron === "number" && Number.isFinite(data.iron)) {
+      iron = Math.max(0, Math.floor(data.iron));
+    }
+    if (data.player && Number.isFinite(data.player.x) && Number.isFinite(data.player.z)) {
+      player.position.x = Math.max(-42, Math.min(42, data.player.x));
+      player.position.z = Math.max(-42, Math.min(42, data.player.z));
+    }
+    if (Array.isArray(data.oreAmounts)) {
+      oreNodes.forEach((node, index) => {
+        const amount = data.oreAmounts?.[index];
+        if (typeof amount === "number" && Number.isFinite(amount)) {
+          node.amount = Math.max(0, Math.min(5, Math.floor(amount)));
+          if (node.amount === 0) {
+            node.mesh.setEnabled(false);
+            node.marker.setEnabled(false);
+          } else {
+            node.mesh.scaling.scaleInPlace(Math.pow(0.91, 5 - node.amount));
+          }
+        }
+      });
+    }
+    if (ironCounter) ironCounter.textContent = String(iron);
+    updateSaveStatus("Wczytano zapis lokalny");
+  } catch (error) {
+    console.warn("Zapis gry jest uszkodzony lub nieaktualny:", error);
+    updateSaveStatus("Nie udało się wczytać zapisu");
+  }
+}
+
+loadGame();
+window.setInterval(saveGame, 5000);
+window.addEventListener("pagehide", saveGame);
 
 function findNearbyOre(): OreNode | null {
   let nearest: OreNode | null = null;
@@ -144,10 +215,12 @@ function collectOre(): void {
   nearbyOre.mesh.scaling.scaleInPlace(0.91);
   if (nearbyOre.amount <= 0) {
     nearbyOre.mesh.setEnabled(false);
+    nearbyOre.marker.setEnabled(false);
     if (statusText) statusText.textContent = "Złoże wyczerpane · poszukaj kolejnego";
   } else if (statusText) {
     statusText.textContent = "Wydobyto 1 rudę · pozostało w złożu: " + nearbyOre.amount;
   }
+  saveGame();
 }
 
 interactButton?.addEventListener("click", collectOre);
