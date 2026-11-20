@@ -33,7 +33,7 @@ ground.material = groundMat;
 
 const gridMat = new StandardMaterial("grid-material", scene);
 gridMat.diffuseColor = new Color3(0.38, 0.52, 0.43);
-gridMat.alpha = 0.13;
+gridMat.alpha = 0.055;
 for (let i = -40; i <= 40; i += 5) {
   const x = MeshBuilder.CreateBox("grid-x-" + i, { width: 0.025, height: 0.012, depth: 80 }, scene);
   x.position.set(i, 0.012, 0); x.material = gridMat;
@@ -41,17 +41,67 @@ for (let i = -40; i <= 40; i += 5) {
   z.position.set(0, 0.012, i); z.material = gridMat;
 }
 
-// Małe elementy terenu nadające skali i pomagające orientować się w przestrzeni.
+// Dekoracje biomu: leśne obrzeża, kamienie i wydeptane drogi nadają mapie skalę.
 const stoneMat = new StandardMaterial("stone-material", scene);
 stoneMat.diffuseColor = new Color3(0.25, 0.31, 0.29);
-for (let i = 0; i < 24; i++) {
+const barkMat = new StandardMaterial("tree-bark-material", scene);
+barkMat.diffuseColor = new Color3(0.25, 0.16, 0.105);
+const pineMat = new StandardMaterial("pine-material", scene);
+pineMat.diffuseColor = new Color3(0.12, 0.29, 0.22);
+const pineLightMat = new StandardMaterial("pine-light-material", scene);
+pineLightMat.diffuseColor = new Color3(0.19, 0.39, 0.28);
+const earthMat = new StandardMaterial("earth-path-material", scene);
+earthMat.diffuseColor = new Color3(0.31, 0.27, 0.19);
+earthMat.specularColor = Color3.Black();
+const grassMat = new StandardMaterial("grass-material", scene);
+grassMat.diffuseColor = new Color3(0.29, 0.42, 0.27);
+for (let i = 0; i < 30; i++) {
   const angle = i * 2.399;
-  const radius = 13 + (i % 5) * 2.2;
-  const stone = MeshBuilder.CreatePolyhedron("field-stone-" + i, { type: 1, size: 0.45 + (i % 3) * 0.16 }, scene);
-  stone.position.set(Math.cos(angle) * radius, 0.28, Math.sin(angle) * radius);
-  stone.scaling.y = 0.65;
+  const radius = 14 + (i % 7) * 2.4;
+  const stone = MeshBuilder.CreatePolyhedron("field-stone-" + i, { type: 1, size: 0.38 + (i % 4) * 0.14 }, scene);
+  stone.position.set(Math.cos(angle) * radius, 0.22, Math.sin(angle) * radius);
+  stone.scaling.set(1, 0.58, 0.82);
   stone.rotation.y = angle;
   stone.material = stoneMat;
+}
+// Leśny pas na obrzeżach planszy; środek pozostaje wolny dla rozbudowy fabryki.
+for (let i = 0; i < 22; i++) {
+  const angle = i * 2.399 + 0.4;
+  const radius = 23 + (i % 4) * 3.1;
+  const x = Math.cos(angle) * radius;
+  const z = Math.sin(angle) * radius;
+  const trunk = MeshBuilder.CreateCylinder("pine-trunk-" + i, { height: 1.8, diameter: 0.42, tessellation: 7 }, scene);
+  trunk.position.set(x, 0.9, z);
+  trunk.material = barkMat;
+  const lower = MeshBuilder.CreateCylinder("pine-lower-" + i, { height: 2.7, diameterTop: 0.08, diameterBottom: 2.25, tessellation: 7 }, scene);
+  lower.position.set(x, 2.05, z);
+  lower.material = pineMat;
+  const upper = MeshBuilder.CreateCylinder("pine-upper-" + i, { height: 2.25, diameterTop: 0.03, diameterBottom: 1.65, tessellation: 7 }, scene);
+  upper.position.set(x, 3.35, z);
+  upper.material = i % 3 === 0 ? pineLightMat : pineMat;
+}
+// Delikatne plamy ziemi i ścieżka prowadząca od bazy w stronę złóż.
+for (let i = 0; i < 7; i++) {
+  const path = MeshBuilder.CreateGround("mine-trail-" + i, { width: 2.7, height: 2.2 }, scene);
+  path.position.set(1.3 + i * 0.85, 0.018, 1.1 + i * 0.95);
+  path.rotation.y = -0.58;
+  path.material = earthMat;
+}
+for (let i = 0; i < 26; i++) {
+  const angle = i * 2.17;
+  const radius = 8 + (i % 5) * 2.1;
+  const tuft = MeshBuilder.CreateBox("grass-tuft-" + i, { width: 0.07, height: 0.34 + (i % 3) * 0.08, depth: 0.07 }, scene);
+  tuft.position.set(Math.cos(angle) * radius, 0.18, Math.sin(angle) * radius);
+  tuft.rotation.z = (i % 2 ? 0.22 : -0.22);
+  tuft.material = grassMat;
+}
+// Niskie, odległe wzgórza zamykają horyzont bez ciężkiej geometrii.
+for (let i = 0; i < 8; i++) {
+  const angle = i * Math.PI / 4;
+  const hill = MeshBuilder.CreateSphere("distant-hill-" + i, { diameter: 1, segments: 7 }, scene);
+  hill.position.set(Math.cos(angle) * 43, -1.2, Math.sin(angle) * 43);
+  hill.scaling.set(10 + (i % 3) * 2, 4.5 + (i % 2), 8 + (i % 4));
+  hill.material = i % 2 ? groundMat : grassMat;
 }
 
 const oreMat = new StandardMaterial("iron-ore-material", scene);
@@ -65,6 +115,8 @@ machineBodyMat.diffuseColor = new Color3(0.22, 0.34, 0.36);
 const machineAccentMat = new StandardMaterial("machine-accent-material", scene);
 machineAccentMat.diffuseColor = new Color3(0.92, 0.58, 0.2);
 machineAccentMat.emissiveColor = new Color3(0.12, 0.055, 0.012);
+const darkMachineTrackMat = new StandardMaterial("machine-track-material", scene);
+darkMachineTrackMat.diffuseColor = new Color3(0.075, 0.105, 0.11);
 const MACHINE_COST = 8;
 const MACHINE_CYCLE_SECONDS = 4;
 type OreNode = {
@@ -92,12 +144,69 @@ orePositions.forEach((position, index) => {
   oreNodes.push({ mesh: ore, marker, amount: 5, machineBuilt: false, machineParts: [], machineTimer: 0 });
 });
 
-const playerMat = new StandardMaterial("player-material", scene);
-playerMat.diffuseColor = new Color3(0.28, 0.78, 0.52);
-playerMat.emissiveColor = new Color3(0.025, 0.12, 0.055);
-const player = MeshBuilder.CreateCapsule("player", { height: 2.25, radius: 0.56 }, scene);
-player.position.set(0, 1.12, 0);
-player.material = playerMat;
+// Górnik w kombinezonie roboczym. Niewidoczny kapsułowy korzeń zachowuje stabilny punkt ruchu.
+const player = MeshBuilder.CreateCapsule("player-root", { height: 2.1, radius: 0.48 }, scene);
+player.position.set(0, 1.05, 0);
+player.isVisible = false;
+const suitMat = new StandardMaterial("worker-suit-material", scene);
+suitMat.diffuseColor = new Color3(0.88, 0.48, 0.16);
+const darkSuitMat = new StandardMaterial("worker-dark-material", scene);
+darkSuitMat.diffuseColor = new Color3(0.12, 0.19, 0.21);
+const helmetMat = new StandardMaterial("worker-helmet-material", scene);
+helmetMat.diffuseColor = new Color3(0.96, 0.66, 0.2);
+helmetMat.emissiveColor = new Color3(0.08, 0.035, 0.006);
+const visorMat = new StandardMaterial("worker-visor-material", scene);
+visorMat.diffuseColor = new Color3(0.12, 0.27, 0.31);
+visorMat.emissiveColor = new Color3(0.025, 0.07, 0.08);
+const skinMat = new StandardMaterial("worker-skin-material", scene);
+skinMat.diffuseColor = new Color3(0.72, 0.49, 0.34);
+const workerTorso = MeshBuilder.CreateCapsule("worker-torso", { height: 1.05, radius: 0.34 }, scene);
+workerTorso.parent = player;
+workerTorso.position.set(0, 0.08, 0);
+workerTorso.material = suitMat;
+const workerHead = MeshBuilder.CreateSphere("worker-head", { diameter: 0.56, segments: 10 }, scene);
+workerHead.parent = player;
+workerHead.position.set(0, 0.83, 0.02);
+workerHead.material = skinMat;
+const helmet = MeshBuilder.CreateSphere("worker-helmet", { diameter: 0.66, segments: 10 }, scene);
+helmet.parent = player;
+helmet.position.set(0, 1.05, 0.02);
+helmet.scaling.y = 0.58;
+helmet.material = helmetMat;
+const visor = MeshBuilder.CreateBox("worker-visor", { width: 0.39, height: 0.16, depth: 0.12 }, scene);
+visor.parent = player;
+visor.position.set(0, 0.86, 0.27);
+visor.material = visorMat;
+const backpack = MeshBuilder.CreateBox("worker-backpack", { width: 0.48, height: 0.65, depth: 0.25 }, scene);
+backpack.parent = player;
+backpack.position.set(0, 0.13, -0.38);
+backpack.material = darkSuitMat;
+const leftArm = MeshBuilder.CreateCapsule("worker-left-arm", { height: 0.78, radius: 0.14 }, scene);
+leftArm.parent = player;
+leftArm.position.set(-0.43, 0.02, 0.02);
+leftArm.rotation.z = -0.22;
+leftArm.material = suitMat;
+const rightArm = MeshBuilder.CreateCapsule("worker-right-arm", { height: 0.78, radius: 0.14 }, scene);
+rightArm.parent = player;
+rightArm.position.set(0.43, 0.02, 0.02);
+rightArm.rotation.z = 0.22;
+rightArm.material = suitMat;
+const leftLeg = MeshBuilder.CreateBox("worker-left-leg", { width: 0.22, height: 0.62, depth: 0.25 }, scene);
+leftLeg.parent = player;
+leftLeg.position.set(-0.18, -0.58, 0);
+leftLeg.material = darkSuitMat;
+const rightLeg = MeshBuilder.CreateBox("worker-right-leg", { width: 0.22, height: 0.62, depth: 0.25 }, scene);
+rightLeg.parent = player;
+rightLeg.position.set(0.18, -0.58, 0);
+rightLeg.material = darkSuitMat;
+const leftBoot = MeshBuilder.CreateBox("worker-left-boot", { width: 0.25, height: 0.16, depth: 0.38 }, scene);
+leftBoot.parent = player;
+leftBoot.position.set(-0.18, -0.92, 0.07);
+leftBoot.material = darkSuitMat;
+const rightBoot = MeshBuilder.CreateBox("worker-right-boot", { width: 0.25, height: 0.16, depth: 0.38 }, scene);
+rightBoot.parent = player;
+rightBoot.position.set(0.18, -0.92, 0.07);
+rightBoot.material = darkSuitMat;
 
 const camera = new ArcRotateCamera("follow-camera", -Math.PI / 2, 1.12, 15, player.position, scene);
 camera.lowerRadiusLimit = 9;
@@ -160,19 +269,43 @@ function createMiningMachine(node: OreNode): void {
   if (node.machineBuilt) return;
   const x = node.mesh.position.x;
   const z = node.mesh.position.z;
-  const base = MeshBuilder.CreateBox("miner-base", { width: 1.8, height: 0.28, depth: 1.8 }, scene);
-  base.position.set(x, 0.2, z);
+  const parts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
+  const base = MeshBuilder.CreateBox("miner-base", { width: 2.15, height: 0.24, depth: 2.0 }, scene);
+  base.position.set(x, 0.16, z);
   base.material = machineBodyMat;
-  const housing = MeshBuilder.CreateBox("miner-housing", { width: 0.95, height: 1.35, depth: 0.95 }, scene);
-  housing.position.set(x, 1.0, z);
+  parts.push(base);
+  const chassis = MeshBuilder.CreateBox("miner-chassis", { width: 1.55, height: 0.48, depth: 1.35 }, scene);
+  chassis.position.set(x, 0.48, z);
+  chassis.material = machineAccentMat;
+  parts.push(chassis);
+  const housing = MeshBuilder.CreateBox("miner-housing", { width: 0.98, height: 1.25, depth: 0.92 }, scene);
+  housing.position.set(x, 1.28, z - 0.08);
   housing.material = machineBodyMat;
-  const drill = MeshBuilder.CreateCylinder("miner-drill", { height: 1.15, diameterTop: 0.12, diameterBottom: 0.34, tessellation: 8 }, scene);
-  drill.position.set(x, 2.12, z);
+  parts.push(housing);
+  const drill = MeshBuilder.CreateCylinder("miner-drill", { height: 1.25, diameterTop: 0.12, diameterBottom: 0.42, tessellation: 9 }, scene);
+  drill.position.set(x, 2.38, z + 0.2);
   drill.material = machineAccentMat;
-  const control = MeshBuilder.CreateBox("miner-control", { width: 0.22, height: 0.32, depth: 0.08 }, scene);
-  control.position.set(x, 1.05, z - 0.51);
+  parts.push(drill);
+  const arm = MeshBuilder.CreateBox("miner-boom", { width: 0.28, height: 1.55, depth: 0.3 }, scene);
+  arm.position.set(x, 1.86, z + 0.48);
+  arm.rotation.x = -0.24;
+  arm.material = machineBodyMat;
+  parts.push(arm);
+  const control = MeshBuilder.CreateBox("miner-control", { width: 0.28, height: 0.38, depth: 0.09 }, scene);
+  control.position.set(x, 1.28, z - 0.57);
   control.material = machineAccentMat;
-  node.machineParts = [base, housing, drill, control];
+  parts.push(control);
+  const beacon = MeshBuilder.CreateCylinder("miner-warning-beacon", { height: 0.18, diameter: 0.22, tessellation: 10 }, scene);
+  beacon.position.set(x + 0.34, 1.98, z - 0.08);
+  beacon.material = oreGlowMat;
+  parts.push(beacon);
+  for (let side = -1; side <= 1; side += 2) {
+    const track = MeshBuilder.CreateBox("miner-track-" + side, { width: 0.28, height: 0.34, depth: 1.62 }, scene);
+    track.position.set(x + side * 0.91, 0.28, z);
+    track.material = darkMachineTrackMat;
+    parts.push(track);
+  }
+  node.machineParts = parts;
   node.machineBuilt = true;
   node.machineTimer = 0;
 }
@@ -303,7 +436,13 @@ buildMachineButton?.addEventListener("click", buildMiningMachine);
 scene.onBeforeRenderObservable.add(() => {
   const forward = Number(pressed.has("forward")) - Number(pressed.has("back"));
   const sideways = Number(pressed.has("right")) - Number(pressed.has("left"));
-  if (forward !== 0 || sideways !== 0) {
+  const isMoving = forward !== 0 || sideways !== 0;
+  const walkPhase = performance.now() * 0.009;
+  leftLeg.rotation.x = isMoving ? Math.sin(walkPhase) * 0.42 : 0;
+  rightLeg.rotation.x = isMoving ? -Math.sin(walkPhase) * 0.42 : 0;
+  leftArm.rotation.x = isMoving ? -Math.sin(walkPhase) * 0.28 : 0;
+  rightArm.rotation.x = isMoving ? Math.sin(walkPhase) * 0.28 : 0;
+  if (isMoving) {
     const direction = new Vector3(
       -Math.sin(camera.alpha) * forward + Math.cos(camera.alpha) * sideways,
       0,
@@ -330,6 +469,8 @@ scene.onBeforeRenderObservable.add(() => {
   const deltaSeconds = engine.getDeltaTime() / 1000;
   for (const node of oreNodes) {
     if (!node.machineBuilt || node.amount <= 0) continue;
+    if (node.machineParts[3]) node.machineParts[3].rotation.y += deltaSeconds * 1.8;
+    if (node.machineParts[6]) node.machineParts[6].rotation.y += deltaSeconds * 2.5;
     node.machineTimer += deltaSeconds;
     if (node.machineTimer >= MACHINE_CYCLE_SECONDS) {
       node.machineTimer -= MACHINE_CYCLE_SECONDS;
