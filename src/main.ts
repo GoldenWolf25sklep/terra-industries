@@ -138,6 +138,7 @@ const CONVEYOR_CYCLE_SECONDS = 4;
 type OreNode = {
   mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>;
   marker: ReturnType<typeof MeshBuilder.CreateCylinder>;
+  beacon: ReturnType<typeof MeshBuilder.CreateTorus>;
   amount: number;
   machineBuilt: boolean;
   machineParts: ReturnType<typeof MeshBuilder.CreateBox>[];
@@ -159,7 +160,12 @@ orePositions.forEach((position, index) => {
   const marker = MeshBuilder.CreateCylinder("ore-marker-" + index, { height: 0.08, diameter: 1.9, tessellation: 32 }, scene);
   marker.position.set(position.x, 0.06, position.z);
   marker.material = oreGlowMat;
-  oreNodes.push({ mesh: ore, marker, amount: -1, machineBuilt: false, machineParts: [], machineTimer: 0 });
+  // Unoszący się pierścień jest czytelnym znacznikiem złoża także z większej odległości.
+  const beacon = MeshBuilder.CreateTorus("ore-beacon-" + index, { diameter: 2.35, thickness: 0.085, tessellation: 24 }, scene);
+  beacon.position.set(position.x, 2.25, position.z);
+  beacon.rotation.x = Math.PI / 2;
+  beacon.material = oreGlowMat;
+  oreNodes.push({ mesh: ore, marker, beacon, amount: -1, machineBuilt: false, machineParts: [], machineTimer: 0 });
 });
 const smelterSiteMarker = MeshBuilder.CreateTorus("smelter-build-site", { diameter: 4.5, thickness: 0.13, tessellation: 40 }, scene);
 smelterSiteMarker.position.set(-3.8, 0.09, 1.2);
@@ -752,6 +758,8 @@ scene.onBeforeRenderObservable.add(() => {
     });
   }
   for (const node of oreNodes) {
+    node.beacon.rotation.y += deltaSeconds * 0.42;
+    node.beacon.position.y = 2.25 + Math.sin(performance.now() * 0.0018 + node.mesh.position.x) * 0.12;
     if (!node.machineBuilt || node.amount === 0) continue;
     if (node.machineParts[3]) node.machineParts[3].rotation.y += deltaSeconds * 1.8;
     if (node.machineParts[6]) node.machineParts[6].rotation.y += deltaSeconds * 2.5;
