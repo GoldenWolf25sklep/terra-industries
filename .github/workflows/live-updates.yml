@@ -1,12 +1,15 @@
-name: Publish Terra Industries live update
+name: Publish free GitHub game update
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
-  group: terra-industries-live-update
+  group: terra-industries-github-update
   cancel-in-progress: true
 
 jobs:
@@ -23,13 +26,14 @@ jobs:
         run: npm install
       - name: Build game bundle
         run: npm run build
-      - name: Publish OTA bundle to Capgo
-        if: env.CAPGO_TOKEN != ''
+      - name: Package update
+        run: |
+          cd dist
+          zip -X -r ../terra-live-update.zip .
+      - name: Publish GitHub Release
         env:
-          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
-        run: npx @capgo/cli@latest bundle upload -a "$CAPGO_TOKEN" --channel production
-      - name: Explain missing Capgo token
-        if: env.CAPGO_TOKEN == ''
-        env:
-          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}
-        run: echo "OTA bundle built, but not published. Add CAPGO_TOKEN in GitHub repository Actions secrets."
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "live-${{ github.run_number }}" terra-live-update.zip \
+            --title "Terra Industries live update ${{ github.run_number }}" \
+            --notes "Automatyczna aktualizacja gry. Zainstaluj ją w aplikacji Terra Industries."
