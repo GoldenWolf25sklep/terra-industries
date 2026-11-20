@@ -270,6 +270,7 @@ let smelterBuilt = false;
 let smelterTimer = 0;
 let smelterParts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
 let smelterGlow: ReturnType<typeof MeshBuilder.CreateSphere> | null = null;
+let smelterFan: ReturnType<typeof MeshBuilder.CreateCylinder> | null = null;
 let nearbyOre: OreNode | null = null;
 const INTERACTION_RANGE = 3.4;
 const SAVE_KEY = "terra-industries-save-v1";
@@ -359,6 +360,16 @@ function createSmelter(): void {
   chimneyCap.position.set(x + 0.62, 5.12, z - 0.35);
   chimneyCap.material = furnaceMat;
   parts.push(chimneyCap);
+  smelterFan = chimneyCap;
+  const fanBladeA = MeshBuilder.CreateBox("smelter-fan-blade-a", { width: 1.05, height: 0.08, depth: 0.2 }, scene);
+  fanBladeA.parent = chimneyCap;
+  fanBladeA.position.y = 0.18;
+  fanBladeA.material = darkMachineTrackMat;
+  const fanBladeB = MeshBuilder.CreateBox("smelter-fan-blade-b", { width: 1.05, height: 0.08, depth: 0.2 }, scene);
+  fanBladeB.parent = chimneyCap;
+  fanBladeB.position.y = 0.18;
+  fanBladeB.rotation.y = Math.PI / 2;
+  fanBladeB.material = darkMachineTrackMat;
   const doorFrame = MeshBuilder.CreateBox("smelter-door-frame", { width: 1.25, height: 1.12, depth: 0.18 }, scene);
   doorFrame.position.set(x, 1.55, z + 1.12);
   doorFrame.material = furnaceMetalMat;
@@ -588,7 +599,8 @@ scene.onBeforeRenderObservable.add(() => {
   }
   if (smelterBuilt && smelterGlow) {
     const active = iron >= SMELTER_IRON_PER_INGOT;
-    smelterTimer += deltaSeconds;
+    if (active) smelterTimer += deltaSeconds;
+    if (smelterFan) smelterFan.rotation.y += deltaSeconds * (active ? 1.7 : 0.25);
     const pulse = 0.72 + Math.sin(performance.now() * 0.008) * 0.12;
     smelterGlow.scaling.set(1, 0.78 * pulse, 1);
     furnaceGlowMat.emissiveColor = active
