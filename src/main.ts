@@ -434,6 +434,7 @@ function buildMiningMachine(): void {
 
 buildMachineButton?.addEventListener("click", buildMiningMachine);
 scene.onBeforeRenderObservable.add(() => {
+  const deltaSeconds = Math.min(engine.getDeltaTime() / 1000, 0.05);
   const forward = Number(pressed.has("forward")) - Number(pressed.has("back"));
   const sideways = Number(pressed.has("right")) - Number(pressed.has("left"));
   const isMoving = forward !== 0 || sideways !== 0;
@@ -448,12 +449,12 @@ scene.onBeforeRenderObservable.add(() => {
       0,
       -Math.cos(camera.alpha) * forward - Math.sin(camera.alpha) * sideways
     ).normalize();
-    player.position.addInPlace(direction.scale(0.13));
+    player.position.addInPlace(direction.scale(deltaSeconds * 5.2));
     player.position.x = Math.max(-42, Math.min(42, player.position.x));
     player.position.z = Math.max(-42, Math.min(42, player.position.z));
     player.rotation.y = Math.atan2(direction.x, direction.z);
   }
-  camera.target.copyFrom(player.position);
+  player.position.y = 1.05 + (isMoving ? Math.abs(Math.sin(walkPhase * 0.5)) * 0.045 : 0);\n  camera.target.copyFrom(player.position);
   camera.target.y += 0.5;
   nearbyOre = findNearbyOre();
   if (interactButton) interactButton.textContent = nearbyOre ? "WYDOBĄDŹ RUDĘ · E" : "BRAK ZŁOŻA W ZASIĘGU";
@@ -466,7 +467,6 @@ scene.onBeforeRenderObservable.add(() => {
   if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
     statusText.textContent = "Złoże żelaza w zasięgu · " + nearbyOre.amount + " jednostek";
   }
-  const deltaSeconds = engine.getDeltaTime() / 1000;
   for (const node of oreNodes) {
     if (!node.machineBuilt || node.amount <= 0) continue;
     if (node.machineParts[3]) node.machineParts[3].rotation.y += deltaSeconds * 1.8;
