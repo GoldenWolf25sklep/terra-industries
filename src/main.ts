@@ -454,7 +454,8 @@ scene.onBeforeRenderObservable.add(() => {
     player.position.z = Math.max(-42, Math.min(42, player.position.z));
     player.rotation.y = Math.atan2(direction.x, direction.z);
   }
-  player.position.y = 1.05 + (isMoving ? Math.abs(Math.sin(walkPhase * 0.5)) * 0.045 : 0);\n  camera.target.copyFrom(player.position);
+  player.position.y = 1.05 + (isMoving ? Math.abs(Math.sin(walkPhase * 0.5)) * 0.045 : 0);
+  camera.target.copyFrom(player.position);
   camera.target.y += 0.5;
   nearbyOre = findNearbyOre();
   if (interactButton) interactButton.textContent = nearbyOre ? "WYDOBĄDŹ RUDĘ · E" : "BRAK ZŁOŻA W ZASIĘGU";
