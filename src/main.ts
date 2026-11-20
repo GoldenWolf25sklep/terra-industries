@@ -38,7 +38,7 @@ shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
 shadows.bias = 0.0005;
 shadows.normalBias = 0.025;
 scene.onNewMeshAddedObservable.add(mesh => {
-  if (mesh !== ground && mesh.isVisible && mesh.name !== "terrain") {
+  if (mesh.isVisible && mesh.name !== "terrain") {
     shadows.addShadowCaster(mesh, true);
     mesh.receiveShadows = true;
   }
