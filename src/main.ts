@@ -117,8 +117,19 @@ machineAccentMat.diffuseColor = new Color3(0.92, 0.58, 0.2);
 machineAccentMat.emissiveColor = new Color3(0.12, 0.055, 0.012);
 const darkMachineTrackMat = new StandardMaterial("machine-track-material", scene);
 darkMachineTrackMat.diffuseColor = new Color3(0.075, 0.105, 0.11);
+const furnaceMat = new StandardMaterial("furnace-body-material", scene);
+furnaceMat.diffuseColor = new Color3(0.17, 0.23, 0.25);
+const furnaceMetalMat = new StandardMaterial("furnace-metal-material", scene);
+furnaceMetalMat.diffuseColor = new Color3(0.42, 0.48, 0.47);
+const furnaceGlowMat = new StandardMaterial("furnace-glow-material", scene);
+furnaceGlowMat.diffuseColor = new Color3(1, 0.31, 0.055);
+furnaceGlowMat.emissiveColor = new Color3(0.9, 0.16, 0.015);
 const MACHINE_COST = 8;
 const MACHINE_CYCLE_SECONDS = 4;
+const SMELTER_COST = 12;
+const SMELTER_IRON_PER_INGOT = 5;
+const SMELTER_CYCLE_SECONDS = 8;
+const SMELTER_RANGE = 5.5;
 type OreNode = {
   mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>;
   marker: ReturnType<typeof MeshBuilder.CreateCylinder>;
@@ -251,7 +262,14 @@ const ironCounter = document.querySelector<HTMLElement>("#iron-count");
 const statusText = document.querySelector<HTMLElement>("#interaction-status");
 const interactButton = document.querySelector<HTMLButtonElement>("#interact-button");
 const buildMachineButton = document.querySelector<HTMLButtonElement>("#build-machine-button");
+const buildSmelterButton = document.querySelector<HTMLButtonElement>("#build-smelter-button");
+const steelCounter = document.querySelector<HTMLElement>("#steel-count");
 let iron = 0;
+let steel = 0;
+let smelterBuilt = false;
+let smelterTimer = 0;
+let smelterParts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
+let smelterGlow: ReturnType<typeof MeshBuilder.CreateSphere> | null = null;
 let nearbyOre: OreNode | null = null;
 const INTERACTION_RANGE = 3.4;
 const SAVE_KEY = "terra-industries-save-v1";
@@ -263,6 +281,8 @@ type SaveData = {
   player: { x: number; z: number };
   oreAmounts: number[];
   machines?: boolean[];
+  steel?: number;
+  smelterBuilt?: boolean;
 };
 
 function createMiningMachine(node: OreNode): void {
@@ -310,6 +330,67 @@ function createMiningMachine(node: OreNode): void {
   node.machineTimer = 0;
 }
 
+function createSmelter(): void {
+  if (smelterBuilt) return;
+  const x = -3.8;
+  const z = 1.2;
+  const parts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
+  const foundation = MeshBuilder.CreateBox("smelter-foundation", { width: 3.8, height: 0.28, depth: 3.2 }, scene);
+  foundation.position.set(x, 0.16, z);
+  foundation.material = darkMachineTrackMat;
+  parts.push(foundation);
+  const lower = MeshBuilder.CreateBox("smelter-lower-frame", { width: 3.2, height: 0.42, depth: 2.65 }, scene);
+  lower.position.set(x, 0.5, z);
+  lower.material = furnaceMetalMat;
+  parts.push(lower);
+  const body = MeshBuilder.CreateBox("smelter-furnace-body", { width: 2.25, height: 2.1, depth: 2.05 }, scene);
+  body.position.set(x, 1.72, z);
+  body.material = furnaceMat;
+  parts.push(body);
+  const roof = MeshBuilder.CreateBox("smelter-roof", { width: 2.55, height: 0.24, depth: 2.35 }, scene);
+  roof.position.set(x, 2.88, z);
+  roof.material = furnaceMetalMat;
+  parts.push(roof);
+  const chimney = MeshBuilder.CreateCylinder("smelter-chimney", { height: 2.3, diameter: 0.62, tessellation: 12 }, scene);
+  chimney.position.set(x + 0.62, 3.95, z - 0.35);
+  chimney.material = furnaceMetalMat;
+  parts.push(chimney);
+  const chimneyCap = MeshBuilder.CreateCylinder("smelter-chimney-cap", { height: 0.18, diameter: 0.88, tessellation: 12 }, scene);
+  chimneyCap.position.set(x + 0.62, 5.12, z - 0.35);
+  chimneyCap.material = furnaceMat;
+  parts.push(chimneyCap);
+  const doorFrame = MeshBuilder.CreateBox("smelter-door-frame", { width: 1.25, height: 1.12, depth: 0.18 }, scene);
+  doorFrame.position.set(x, 1.55, z + 1.12);
+  doorFrame.material = furnaceMetalMat;
+  parts.push(doorFrame);
+  const glow = MeshBuilder.CreateSphere("smelter-furnace-glow", { diameter: 0.72, segments: 10 }, scene);
+  glow.position.set(x, 1.56, z + 1.24);
+  glow.scaling.y = 0.78;
+  glow.material = furnaceGlowMat;
+  smelterGlow = glow;
+  const controlPanel = MeshBuilder.CreateBox("smelter-control-panel", { width: 0.62, height: 0.78, depth: 0.16 }, scene);
+  controlPanel.position.set(x + 1.22, 1.35, z + 0.98);
+  controlPanel.material = machineBodyMat;
+  parts.push(controlPanel);
+  const gauge = MeshBuilder.CreateCylinder("smelter-pressure-gauge", { height: 0.12, diameter: 0.28, tessellation: 16 }, scene);
+  gauge.position.set(x + 1.22, 1.62, z + 1.1);
+  gauge.rotation.x = Math.PI / 2;
+  gauge.material = furnaceGlowMat;
+  parts.push(gauge);
+  const pipe = MeshBuilder.CreateCylinder("smelter-side-pipe", { height: 1.5, diameter: 0.18, tessellation: 10 }, scene);
+  pipe.position.set(x - 1.32, 1.5, z - 0.25);
+  pipe.rotation.z = Math.PI / 2;
+  pipe.material = furnaceMetalMat;
+  parts.push(pipe);
+  const vent = MeshBuilder.CreateBox("smelter-side-vent", { width: 0.12, height: 0.8, depth: 0.8 }, scene);
+  vent.position.set(x - 1.18, 2.1, z - 0.65);
+  vent.material = darkMachineTrackMat;
+  parts.push(vent);
+  smelterParts = parts;
+  smelterBuilt = true;
+  smelterTimer = 0;
+}
+
 function updateSaveStatus(message: string): void {
   if (saveStatus) saveStatus.textContent = message;
 }
@@ -320,7 +401,9 @@ function saveGame(): void {
     iron,
     player: { x: player.position.x, z: player.position.z },
     oreAmounts: oreNodes.map(node => node.amount),
-    machines: oreNodes.map(node => node.machineBuilt)
+    machines: oreNodes.map(node => node.machineBuilt),
+    steel,
+    smelterBuilt
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -343,6 +426,10 @@ function loadGame(): void {
     if (typeof data.iron === "number" && Number.isFinite(data.iron)) {
       iron = Math.max(0, Math.floor(data.iron));
     }
+    if (typeof data.steel === "number" && Number.isFinite(data.steel)) {
+      steel = Math.max(0, Math.floor(data.steel));
+    }
+    if (data.smelterBuilt === true) createSmelter();
     if (data.player && Number.isFinite(data.player.x) && Number.isFinite(data.player.z)) {
       player.position.x = Math.max(-42, Math.min(42, data.player.x));
       player.position.z = Math.max(-42, Math.min(42, data.player.z));
@@ -367,6 +454,7 @@ function loadGame(): void {
       });
     }
     if (ironCounter) ironCounter.textContent = String(iron);
+    if (steelCounter) steelCounter.textContent = String(steel);
     updateSaveStatus("Wczytano zapis lokalny");
   } catch (error) {
     console.warn("Zapis gry jest uszkodzony lub nieaktualny:", error);
@@ -433,6 +521,29 @@ function buildMiningMachine(): void {
 }
 
 buildMachineButton?.addEventListener("click", buildMiningMachine);
+
+function buildSmelter(): void {
+  const distance = Math.hypot(player.position.x + 3.8, player.position.z - 1.2);
+  if (distance > SMELTER_RANGE) {
+    if (statusText) statusText.textContent = "Podejdź do oznaczonego miejsca przy bazie, aby zbudować hutę";
+    return;
+  }
+  if (smelterBuilt) {
+    if (statusText) statusText.textContent = "Huta jest już zbudowana i gotowa do pracy";
+    return;
+  }
+  if (iron < SMELTER_COST) {
+    if (statusText) statusText.textContent = "Potrzeba " + SMELTER_COST + " żelaza na hutę";
+    return;
+  }
+  iron -= SMELTER_COST;
+  if (ironCounter) ironCounter.textContent = String(iron);
+  createSmelter();
+  if (statusText) statusText.textContent = "Huta uruchomiona · przetwarza 5 żelaza na 1 sztabkę";
+  saveGame();
+}
+buildSmelterButton?.addEventListener("click", buildSmelter);
+
 scene.onBeforeRenderObservable.add(() => {
   const deltaSeconds = Math.min(engine.getDeltaTime() / 1000, 0.05);
   const forward = Number(pressed.has("forward")) - Number(pressed.has("back"));
@@ -465,8 +576,33 @@ scene.onBeforeRenderObservable.add(() => {
       ? "KOPARKA DZIAŁA"
       : "ZBUDUJ KOPARKĘ · " + MACHINE_COST + " ŻELAZA";
   }
+  if (buildSmelterButton) {
+    const atBase = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
+    buildSmelterButton.disabled = smelterBuilt || !atBase || iron < SMELTER_COST;
+    buildSmelterButton.textContent = smelterBuilt
+      ? "HUTA DZIAŁA"
+      : "ZBUDUJ HUTĘ · " + SMELTER_COST + " ŻELAZA";
+  }
   if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
     statusText.textContent = "Złoże żelaza w zasięgu · " + nearbyOre.amount + " jednostek";
+  }
+  if (smelterBuilt && smelterGlow) {
+    const active = iron >= SMELTER_IRON_PER_INGOT;
+    smelterTimer += deltaSeconds;
+    const pulse = 0.72 + Math.sin(performance.now() * 0.008) * 0.12;
+    smelterGlow.scaling.set(1, 0.78 * pulse, 1);
+    furnaceGlowMat.emissiveColor = active
+      ? new Color3(0.9 * pulse, 0.16 * pulse, 0.015)
+      : new Color3(0.08, 0.025, 0.005);
+    if (active && smelterTimer >= SMELTER_CYCLE_SECONDS) {
+      smelterTimer -= SMELTER_CYCLE_SECONDS;
+      iron -= SMELTER_IRON_PER_INGOT;
+      steel += 1;
+      if (ironCounter) ironCounter.textContent = String(iron);
+      if (steelCounter) steelCounter.textContent = String(steel);
+      if (statusText) statusText.textContent = "Huta wyprodukowała 1 stalową sztabkę";
+      saveGame();
+    }
   }
   for (const node of oreNodes) {
     if (!node.machineBuilt || node.amount <= 0) continue;
