@@ -707,7 +707,7 @@ scene.onBeforeRenderObservable.add(() => {
     smelterState.textContent = !smelterBuilt ? "BRAK" : (conveyorBuilt ? oreBuffer : iron) >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ";
   }
   if (buildConveyorButton) {
-    const canBuild = smelterBuilt && oreNodes[0].machineBuilt && oreNodes[0].amount > 0;
+    const canBuild = smelterBuilt && oreNodes[0].machineBuilt && oreNodes[0].amount !== 0;
     buildConveyorButton.disabled = conveyorBuilt || !canBuild || steel < CONVEYOR_STEEL_COST;
     buildConveyorButton.textContent = conveyorBuilt
       ? "TAŚMOCIĄG PODŁĄCZONY"
