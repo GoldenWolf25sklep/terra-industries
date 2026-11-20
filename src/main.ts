@@ -60,7 +60,21 @@ oreMat.specularColor = new Color3(0.12, 0.10, 0.08);
 const oreGlowMat = new StandardMaterial("ore-marker-material", scene);
 oreGlowMat.diffuseColor = new Color3(0.95, 0.62, 0.28);
 oreGlowMat.emissiveColor = new Color3(0.22, 0.09, 0.025);
-type OreNode = { mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>; marker: ReturnType<typeof MeshBuilder.CreateCylinder>; amount: number };
+const machineBodyMat = new StandardMaterial("machine-body-material", scene);
+machineBodyMat.diffuseColor = new Color3(0.22, 0.34, 0.36);
+const machineAccentMat = new StandardMaterial("machine-accent-material", scene);
+machineAccentMat.diffuseColor = new Color3(0.92, 0.58, 0.2);
+machineAccentMat.emissiveColor = new Color3(0.12, 0.055, 0.012);
+const MACHINE_COST = 8;
+const MACHINE_CYCLE_SECONDS = 4;
+type OreNode = {
+  mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>;
+  marker: ReturnType<typeof MeshBuilder.CreateCylinder>;
+  amount: number;
+  machineBuilt: boolean;
+  machineParts: ReturnType<typeof MeshBuilder.CreateBox>[];
+  machineTimer: number;
+};
 const oreNodes: OreNode[] = [];
 const orePositions = [
   new Vector3(5, 0, 4), new Vector3(7, 0, 5), new Vector3(4, 0, 7),
@@ -75,7 +89,7 @@ orePositions.forEach((position, index) => {
   const marker = MeshBuilder.CreateCylinder("ore-marker-" + index, { height: 0.08, diameter: 1.9, tessellation: 32 }, scene);
   marker.position.set(position.x, 0.06, position.z);
   marker.material = oreGlowMat;
-  oreNodes.push({ mesh: ore, marker, amount: 5 });
+  oreNodes.push({ mesh: ore, marker, amount: 5, machineBuilt: false, machineParts: [], machineTimer: 0 });
 });
 
 const playerMat = new StandardMaterial("player-material", scene);
@@ -127,6 +141,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-move]").forEach(button => {
 const ironCounter = document.querySelector<HTMLElement>("#iron-count");
 const statusText = document.querySelector<HTMLElement>("#interaction-status");
 const interactButton = document.querySelector<HTMLButtonElement>("#interact-button");
+const buildMachineButton = document.querySelector<HTMLButtonElement>("#build-machine-button");
 let iron = 0;
 let nearbyOre: OreNode | null = null;
 const INTERACTION_RANGE = 3.4;
@@ -138,7 +153,29 @@ type SaveData = {
   iron: number;
   player: { x: number; z: number };
   oreAmounts: number[];
+  machines?: boolean[];
 };
+
+function createMiningMachine(node: OreNode): void {
+  if (node.machineBuilt) return;
+  const x = node.mesh.position.x;
+  const z = node.mesh.position.z;
+  const base = MeshBuilder.CreateBox("miner-base", { width: 1.8, height: 0.28, depth: 1.8 }, scene);
+  base.position.set(x, 0.2, z);
+  base.material = machineBodyMat;
+  const housing = MeshBuilder.CreateBox("miner-housing", { width: 0.95, height: 1.35, depth: 0.95 }, scene);
+  housing.position.set(x, 1.0, z);
+  housing.material = machineBodyMat;
+  const drill = MeshBuilder.CreateCylinder("miner-drill", { height: 1.15, diameterTop: 0.12, diameterBottom: 0.34, tessellation: 8 }, scene);
+  drill.position.set(x, 2.12, z);
+  drill.material = machineAccentMat;
+  const control = MeshBuilder.CreateBox("miner-control", { width: 0.22, height: 0.32, depth: 0.08 }, scene);
+  control.position.set(x, 1.05, z - 0.51);
+  control.material = machineAccentMat;
+  node.machineParts = [base, housing, drill, control];
+  node.machineBuilt = true;
+  node.machineTimer = 0;
+}
 
 function updateSaveStatus(message: string): void {
   if (saveStatus) saveStatus.textContent = message;
@@ -149,7 +186,8 @@ function saveGame(): void {
     version: 1,
     iron,
     player: { x: player.position.x, z: player.position.z },
-    oreAmounts: oreNodes.map(node => node.amount)
+    oreAmounts: oreNodes.map(node => node.amount),
+    machines: oreNodes.map(node => node.machineBuilt)
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -188,6 +226,11 @@ function loadGame(): void {
             node.mesh.scaling.scaleInPlace(Math.pow(0.91, 5 - node.amount));
           }
         }
+      });
+    }
+    if (Array.isArray(data.machines)) {
+      oreNodes.forEach((node, index) => {
+        if (data.machines?.[index] === true && node.amount > 0) createMiningMachine(node);
       });
     }
     if (ironCounter) ironCounter.textContent = String(iron);
@@ -234,6 +277,29 @@ function collectOre(): void {
 }
 
 interactButton?.addEventListener("click", collectOre);
+
+function buildMiningMachine(): void {
+  nearbyOre = findNearbyOre();
+  if (!nearbyOre) {
+    if (statusText) statusText.textContent = "Podejdź do złoża, aby ustawić koparkę";
+    return;
+  }
+  if (nearbyOre.machineBuilt) {
+    if (statusText) statusText.textContent = "Na tym złożu pracuje już koparka";
+    return;
+  }
+  if (iron < MACHINE_COST) {
+    if (statusText) statusText.textContent = "Potrzeba " + MACHINE_COST + " żelaza na koparkę";
+    return;
+  }
+  iron -= MACHINE_COST;
+  if (ironCounter) ironCounter.textContent = String(iron);
+  createMiningMachine(nearbyOre);
+  if (statusText) statusText.textContent = "Koparka uruchomiona · wydobycie automatyczne";
+  saveGame();
+}
+
+buildMachineButton?.addEventListener("click", buildMiningMachine);
 scene.onBeforeRenderObservable.add(() => {
   const forward = Number(pressed.has("forward")) - Number(pressed.has("back"));
   const sideways = Number(pressed.has("right")) - Number(pressed.has("left"));
@@ -252,7 +318,35 @@ scene.onBeforeRenderObservable.add(() => {
   camera.target.y += 0.5;
   nearbyOre = findNearbyOre();
   if (interactButton) interactButton.textContent = nearbyOre ? "WYDOBĄDŹ RUDĘ · E" : "BRAK ZŁOŻA W ZASIĘGU";
-  if (statusText && nearbyOre) statusText.textContent = "Złoże żelaza w zasięgu · " + nearbyOre.amount + " jednostek";
+  if (buildMachineButton) {
+    buildMachineButton.disabled = !nearbyOre || !!nearbyOre.machineBuilt || iron < MACHINE_COST;
+    buildMachineButton.textContent = nearbyOre?.machineBuilt
+      ? "KOPARKA DZIAŁA"
+      : "ZBUDUJ KOPARKĘ · " + MACHINE_COST + " ŻELAZA";
+  }
+  if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
+    statusText.textContent = "Złoże żelaza w zasięgu · " + nearbyOre.amount + " jednostek";
+  }
+  const deltaSeconds = engine.getDeltaTime() / 1000;
+  for (const node of oreNodes) {
+    if (!node.machineBuilt || node.amount <= 0) continue;
+    node.machineTimer += deltaSeconds;
+    if (node.machineTimer >= MACHINE_CYCLE_SECONDS) {
+      node.machineTimer -= MACHINE_CYCLE_SECONDS;
+      node.amount -= 1;
+      iron += 1;
+      if (ironCounter) ironCounter.textContent = String(iron);
+      node.mesh.scaling.scaleInPlace(0.91);
+      if (node.amount <= 0) {
+        node.mesh.setEnabled(false);
+        node.marker.setEnabled(false);
+        node.machineParts.forEach(part => part.setEnabled(false));
+        node.machineBuilt = false;
+      }
+      if (statusText) statusText.textContent = "Koparka wydobyła 1 rudę żelaza";
+      saveGame();
+    }
+  }
 });
 
 engine.runRenderLoop(() => scene.render());
