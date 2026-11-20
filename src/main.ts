@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import {
   ArcRotateCamera, Color3, Color4, DirectionalLight, Engine, HemisphericLight,
   MeshBuilder, Scene, StandardMaterial, Vector3
@@ -779,11 +780,53 @@ scene.onBeforeRenderObservable.add(() => {
 
 engine.runRenderLoop(() => scene.render());
 
-// Potwierdź poprawne uruchomienie aplikacji updaterowi OTA.
-// Aktualizacja pobiera się w tle i jest stosowana przy przejściu aplikacji do tła.
-void CapacitorUpdater.notifyAppReady().catch(error => {
-  console.warn("Aktualizacje OTA są chwilowo niedostępne:", error);
+// GitHub Releases jest darmowym źródłem aktualizacji gry (bez serwera i abonamentu).
+// Aktualizacje WWW pobieramy tylko w natywnej aplikacji Android/iOS.
+const GITHUB_RELEASES_URL = "https://api.github.com/repos/GoldenWolf25sklep/terra-industries/releases/latest";
+let updateCheckRunning = false;
+
+async function checkForGitHubUpdate(): Promise<void> {
+  if (!Capacitor.isNativePlatform() || updateCheckRunning) return;
+  updateCheckRunning = true;
+  try {
+    const response = await fetch(GITHUB_RELEASES_URL, {
+      headers: { Accept: "application/vnd.github+json" },
+      cache: "no-store"
+    });
+    if (!response.ok) return;
+    const release = await response.json() as {
+      tag_name?: string;
+      assets?: Array<{ name?: string; browser_download_url?: string }>;
+    };
+    const version = release.tag_name;
+    const asset = release.assets?.find(item => item.name === "terra-live-update.zip");
+    if (!version || !asset?.browser_download_url) return;
+
+    const current = await CapacitorUpdater.current();
+    if (current.bundle?.version === version) return;
+    if (localStorage.getItem("terra-industries-pending-update") === version) return;
+
+    const bundle = await CapacitorUpdater.download({
+      url: asset.browser_download_url,
+      version
+    });
+    await CapacitorUpdater.next({ id: bundle.id });
+    localStorage.setItem("terra-industries-pending-update", version);
+    console.info("Pobrano aktualizację Terra Industries:", version);
+  } catch (error) {
+    console.warn("Nie udało się sprawdzić aktualizacji GitHub:", error);
+  } finally {
+    updateCheckRunning = false;
+  }
+}
+
+// Najpierw potwierdź uruchomienie bieżącej wersji; potem sprawdź darmowe wydanie GitHub.
+void CapacitorUpdater.notifyAppReady().then(() => {
+  void checkForGitHubUpdate();
+}).catch(error => {
+  console.warn("Nie udało się potwierdzić uruchomienia gry:", error);
 });
+window.setInterval(() => void checkForGitHubUpdate(), 30 * 60 * 1000);
 
 window.addEventListener("resize", () => {
   engine.resize();
