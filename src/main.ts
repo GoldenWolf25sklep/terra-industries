@@ -186,6 +186,7 @@ type OreNode = {
   beacon: ReturnType<typeof MeshBuilder.CreateTorus>;
   amount: number;
   machineBuilt: boolean;
+  machineLevel: number;
   machineParts: ReturnType<typeof MeshBuilder.CreateBox>[];
   machineTimer: number;
 };
@@ -205,7 +206,7 @@ orePositions.forEach((position, index) => {
   beacon.position.set(position.x, 2.8, position.z);
   beacon.rotation.x = Math.PI / 2;
   beacon.material = oreGlowMat;
-  oreNodes.push({ mesh: ore, marker, beacon, amount: -1, machineBuilt: false, machineParts: [], machineTimer: 0 });
+  oreNodes.push({ mesh: ore, marker, beacon, amount: -1, machineBuilt: false, machineLevel: 1, machineParts: [], machineTimer: 0 });
 });
 const smelterSiteMarker = MeshBuilder.CreateTorus("smelter-build-site", { diameter: 4.5, thickness: 0.13, tessellation: 40 }, scene);
 smelterSiteMarker.position.set(-3.8, 0.09, 1.2);
@@ -360,6 +361,19 @@ window.addEventListener("blur", () => pressed.clear());
 const ironCounter = document.querySelector<HTMLElement>("#iron-count");
 const statusText = document.querySelector<HTMLElement>("#interaction-status");
 const interactButton = document.querySelector<HTMLButtonElement>("#interact-button");
+const machinePanel = document.querySelector<HTMLElement>("#machine-panel");
+const menuPanelTitle = document.querySelector<HTMLElement>("#menu-panel-title");
+const menuPanelMessage = document.querySelector<HTMLElement>("#menu-panel-message");
+const machineActions = document.querySelector<HTMLElement>("#machine-actions");
+const menuButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".bottom-menu-button"));
+let activeMenuTab = "home";
+let menuPanelOpen = false;
+menuButtons.forEach(button => button.addEventListener("click", () => {
+  const tab = button.dataset.tab ?? "home";
+  if (activeMenuTab === tab && menuPanelOpen) menuPanelOpen = false;
+  else { activeMenuTab = tab; menuPanelOpen = true; }
+  menuButtons.forEach(item => item.classList.toggle("active", menuPanelOpen && item.dataset.tab === activeMenuTab));
+}));
 const buildMachineButton = document.querySelector<HTMLButtonElement>("#build-machine-button");
 const buildSmelterButton = document.querySelector<HTMLButtonElement>("#build-smelter-button");
 const steelCounter = document.querySelector<HTMLElement>("#steel-count");
@@ -389,6 +403,7 @@ type SaveData = {
   player: { x: number; z: number };
   oreAmounts: number[];
   machines?: boolean[];
+  machineLevels?: number[];
   steel?: number;
   smelterBuilt?: boolean;
   oreBuffer?: number;
@@ -568,6 +583,7 @@ function saveGame(): void {
     player: { x: player.position.x, z: player.position.z },
     oreAmounts: oreNodes.map(node => node.amount),
     machines: oreNodes.map(node => node.machineBuilt),
+    machineLevels: oreNodes.map(node => node.machineLevel),
     steel,
     oreBuffer,
     conveyorBuilt,
@@ -613,7 +629,11 @@ function loadGame(): void {
     }
     if (Array.isArray(data.machines)) {
       oreNodes.forEach((node, index) => {
-        if (data.machines?.[index] === true && node.amount !== 0) createMiningMachine(node);
+        if (data.machines?.[index] === true && node.amount !== 0) {
+          createMiningMachine(node);
+          const savedLevel = data.machineLevels?.[index];
+          if (typeof savedLevel === "number" && Number.isFinite(savedLevel)) node.machineLevel = Math.max(1, Math.min(3, Math.floor(savedLevel)));
+        }
       });
     }
     if (ironCounter) ironCounter.textContent = String(iron);
@@ -677,6 +697,31 @@ function buildMiningMachine(): void {
 }
 
 buildMachineButton?.addEventListener("click", buildMiningMachine);
+
+const upgradeMachineButton = document.querySelector<HTMLButtonElement>("#upgrade-machine-button");
+const MACHINE_UPGRADE_COSTS = [0, 150, 250];
+function upgradeMiningMachine(): void {
+  nearbyOre = findNearbyOre();
+  if (!nearbyOre?.machineBuilt) {
+    if (statusText) statusText.textContent = "Podejdź do działającej koparki, aby ją ulepszyć";
+    return;
+  }
+  if (nearbyOre.machineLevel >= 3) {
+    if (statusText) statusText.textContent = "Koparka ma już maksymalny poziom";
+    return;
+  }
+  const cost = MACHINE_UPGRADE_COSTS[nearbyOre.machineLevel];
+  if (iron < cost) {
+    if (statusText) statusText.textContent = "Potrzeba " + cost + " żelaza na ulepszenie koparki";
+    return;
+  }
+  iron -= cost;
+  nearbyOre.machineLevel += 1;
+  if (ironCounter) ironCounter.textContent = String(iron);
+  if (statusText) statusText.textContent = "Koparka ulepszona do poziomu " + nearbyOre.machineLevel + " · szybsze wydobycie";
+  saveGame();
+}
+upgradeMachineButton?.addEventListener("click", upgradeMiningMachine);
 
 function buildSmelter(): void {
   const distance = Math.hypot(player.position.x + 3.8, player.position.z - 1.2);
@@ -760,14 +805,48 @@ scene.onBeforeRenderObservable.add(() => {
   camera.target.copyFrom(player.position);
   camera.target.y += 0.5;
   nearbyOre = findNearbyOre();
-  if (interactButton) interactButton.textContent = nearbyOre ? "WYDOBĄDŹ RUDĘ · E" : "BRAK ZŁOŻA W ZASIĘGU";
+  const atSmelterSite = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
+  const nearAnyMachine = !!nearbyOre || atSmelterSite;
+  if (machinePanel) machinePanel.hidden = !menuPanelOpen;
+  if (menuPanelTitle && menuPanelMessage && machineActions) {
+    const tabTitle = activeMenuTab === "machines" ? "MASZYNY I ROZBUDOWA" : activeMenuTab === "storage" ? "MAGAZYN SUROWCÓW" : "CENTRUM OPERACYJNE";
+    menuPanelTitle.textContent = tabTitle;
+    machineActions.hidden = activeMenuTab !== "machines" || !nearAnyMachine;
+    if (activeMenuTab === "storage") {
+      menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + ". Zasoby zapisują się automatycznie.";
+    } else if (activeMenuTab === "machines" && !nearAnyMachine) {
+      menuPanelMessage.textContent = "Podejdź do koparki przy złożu albo do oznaczonego miejsca huty. Dopiero wtedy pojawią się zakupy i ulepszenia.";
+    } else if (activeMenuTab === "machines" && nearbyOre?.machineBuilt) {
+      menuPanelMessage.textContent = "Koparka poziom " + nearbyOre.machineLevel + "/3 · wydobycie: " + (10 * nearbyOre.machineLevel) + " żelaza co " + (MACHINE_CYCLE_SECONDS / nearbyOre.machineLevel).toFixed(1) + " s.";
+    } else if (activeMenuTab === "machines" && nearbyOre) {
+      menuPanelMessage.textContent = "Główne złoże żelaza · nieograniczona ilość. Możesz wydobywać ręcznie lub kupić koparkę.";
+    } else if (activeMenuTab === "machines" && atSmelterSite) {
+      menuPanelMessage.textContent = smelterBuilt ? "Stoisz przy hucie. Możesz rozbudować transport surowców." : "Miejsce pod budowę huty. Podejdź bliżej, aby ją kupić.";
+    } else {
+      menuPanelMessage.textContent = "Witaj w Terra Industries. Podejdź do maszyny i wybierz zakładkę MASZYNY, aby zobaczyć dostępne działania.";
+    }
+  }
+  if (interactButton) {
+    interactButton.hidden = !nearbyOre;
+    interactButton.textContent = "WYDOBĄDŹ RUDĘ · E";
+  }
   if (buildMachineButton) {
+    buildMachineButton.hidden = !nearbyOre || !!nearbyOre.machineBuilt;
     buildMachineButton.disabled = !nearbyOre || !!nearbyOre.machineBuilt || iron < MACHINE_COST;
-    buildMachineButton.textContent = nearbyOre?.machineBuilt
-      ? "KOPARKA DZIAŁA"
-      : "ZBUDUJ KOPARKĘ · " + MACHINE_COST + " ŻELAZA";
+    buildMachineButton.textContent = "KUP KOPARKĘ · " + MACHINE_COST + " ŻELAZA";
+  }
+  if (upgradeMachineButton) {
+    const canUpgrade = !!nearbyOre?.machineBuilt && nearbyOre.machineLevel < 3;
+    const upgradeCost = nearbyOre ? MACHINE_UPGRADE_COSTS[nearbyOre.machineLevel] : 0;
+    upgradeMachineButton.hidden = !nearbyOre?.machineBuilt;
+    upgradeMachineButton.disabled = !canUpgrade || iron < upgradeCost;
+    upgradeMachineButton.textContent = nearbyOre?.machineLevel === 3
+      ? "KOPARKA · MAKS. POZIOM 3"
+      : "ULEPSZ KOPARKĘ · " + upgradeCost + " ŻELAZA · POZ. " + (nearbyOre?.machineLevel ?? 1) + "/3";
   }
   if (buildSmelterButton) {
+    const atSmelterSite = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
+    buildSmelterButton.hidden = !atSmelterSite || smelterBuilt;
     const atBase = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
     buildSmelterButton.disabled = smelterBuilt || !atBase || iron < SMELTER_COST;
     buildSmelterButton.textContent = smelterBuilt
@@ -778,7 +857,9 @@ scene.onBeforeRenderObservable.add(() => {
     smelterState.textContent = !smelterBuilt ? "BRAK" : (conveyorBuilt ? oreBuffer : iron) >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ";
   }
   if (buildConveyorButton) {
+    const atSmelterSite = Math.hypot(player.position.x + 3.8, player.position.z - 1.2) <= SMELTER_RANGE;
     const canBuild = smelterBuilt && oreNodes[0].machineBuilt && oreNodes[0].amount !== 0;
+    buildConveyorButton.hidden = !atSmelterSite || !smelterBuilt || conveyorBuilt;
     buildConveyorButton.disabled = conveyorBuilt || !canBuild || steel < CONVEYOR_STEEL_COST;
     buildConveyorButton.textContent = conveyorBuilt
       ? "TAŚMOCIĄG PODŁĄCZONY"
@@ -829,8 +910,8 @@ scene.onBeforeRenderObservable.add(() => {
     if (node.machineParts[3]) node.machineParts[3].rotation.y += deltaSeconds * 1.8;
     if (node.machineParts[6]) node.machineParts[6].rotation.y += deltaSeconds * 2.5;
     node.machineTimer += deltaSeconds;
-    if (node.machineTimer >= MACHINE_CYCLE_SECONDS) {
-      node.machineTimer -= MACHINE_CYCLE_SECONDS;
+    if (node.machineTimer >= MACHINE_CYCLE_SECONDS / node.machineLevel) {
+      node.machineTimer -= MACHINE_CYCLE_SECONDS / node.machineLevel;
       if (conveyorBuilt && node === oreNodes[0]) oreBuffer += 10;
       else iron += 10;
       if (ironCounter) ironCounter.textContent = String(iron);
