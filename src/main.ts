@@ -124,13 +124,16 @@ scene.onBeforeRenderObservable.add(() => {
   camera.target.y += 0.45;
 });
 
-window.addEventListener("keydown", (event) => {
-  if (event.code !== "KeyE") return;
+const collectOre = () => {
   if (Vector3.Distance(player.position, new Vector3(8, 0, 7)) < 5) {
     iron += 1;
     if (ironCounter) ironCounter.textContent = String(iron);
   }
+};
+window.addEventListener("keydown", (event) => {
+  if (event.code === "KeyE") collectOre();
 });
+document.querySelector<HTMLButtonElement>("#interact-button")?.addEventListener("click", collectOre);
 
 engine.runRenderLoop(() => scene.render());
 window.addEventListener("resize", () => engine.resize());
