@@ -133,6 +133,8 @@ const SMELTER_COST = 12;
 const SMELTER_IRON_PER_INGOT = 5;
 const SMELTER_CYCLE_SECONDS = 8;
 const SMELTER_RANGE = 5.5;
+const CONVEYOR_STEEL_COST = 4;
+const CONVEYOR_CYCLE_SECONDS = 4;
 type OreNode = {
   mesh: ReturnType<typeof MeshBuilder.CreatePolyhedron>;
   marker: ReturnType<typeof MeshBuilder.CreateCylinder>;
@@ -272,8 +274,15 @@ const buildMachineButton = document.querySelector<HTMLButtonElement>("#build-mac
 const buildSmelterButton = document.querySelector<HTMLButtonElement>("#build-smelter-button");
 const steelCounter = document.querySelector<HTMLElement>("#steel-count");
 const smelterState = document.querySelector<HTMLElement>("#smelter-state");
+const oreBufferCounter = document.querySelector<HTMLElement>("#ore-buffer-count");
+const buildConveyorButton = document.querySelector<HTMLButtonElement>("#build-conveyor-button");
 let iron = 0;
 let steel = 0;
+let oreBuffer = 0;
+let conveyorBuilt = false;
+let conveyorTimer = 0;
+let conveyorParts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
+let conveyorCargo: ReturnType<typeof MeshBuilder.CreatePolyhedron>[] = [];
 let smelterBuilt = false;
 let smelterTimer = 0;
 let smelterParts: ReturnType<typeof MeshBuilder.CreateBox>[] = [];
@@ -292,6 +301,8 @@ type SaveData = {
   machines?: boolean[];
   steel?: number;
   smelterBuilt?: boolean;
+  oreBuffer?: number;
+  conveyorBuilt?: boolean;
 };
 
 function createMiningMachine(node: OreNode): void {
@@ -411,6 +422,51 @@ function createSmelter(): void {
   smelterTimer = 0;
 }
 
+function createConveyor(): void {
+  if (conveyorBuilt) return;
+  const start = new Vector3(5, 0, 4);
+  const end = new Vector3(-3.8, 0, 1.2);
+  const delta = end.subtract(start);
+  const length = delta.length();
+  const midpoint = start.add(end).scale(0.5);
+  const angle = Math.atan2(delta.x, delta.z);
+  const belt = MeshBuilder.CreateBox("ore-conveyor-belt", { width: 1.05, height: 0.16, depth: length }, scene);
+  belt.position.set(midpoint.x, 0.48, midpoint.z);
+  belt.rotation.y = angle;
+  belt.material = darkMachineTrackMat;
+  const sideA = MeshBuilder.CreateBox("ore-conveyor-side-a", { width: 0.12, height: 0.32, depth: length }, scene);
+  sideA.position.set(midpoint.x + Math.cos(angle) * 0.52, 0.55, midpoint.z - Math.sin(angle) * 0.52);
+  sideA.rotation.y = angle;
+  sideA.material = machineBodyMat;
+  const sideB = MeshBuilder.CreateBox("ore-conveyor-side-b", { width: 0.12, height: 0.32, depth: length }, scene);
+  sideB.position.set(midpoint.x - Math.cos(angle) * 0.52, 0.55, midpoint.z + Math.sin(angle) * 0.52);
+  sideB.rotation.y = angle;
+  sideB.material = machineBodyMat;
+  conveyorParts.push(belt, sideA, sideB);
+  for (let i = 0; i <= 6; i++) {
+    const t = i / 6;
+    const point = Vector3.Lerp(start, end, t);
+    const support = MeshBuilder.CreateBox("conveyor-support-" + i, { width: 1.28, height: 0.5, depth: 0.16 }, scene);
+    support.position.set(point.x, 0.25, point.z);
+    support.rotation.y = angle;
+    support.material = furnaceMetalMat;
+    conveyorParts.push(support);
+    const roller = MeshBuilder.CreateCylinder("conveyor-roller-" + i, { height: 1.12, diameter: 0.13, tessellation: 10 }, scene);
+    roller.position.set(point.x, 0.57, point.z);
+    roller.rotation.z = Math.PI / 2;
+    roller.rotation.y = angle;
+    roller.material = furnaceMetalMat;
+    conveyorParts.push(roller);
+  }
+  for (let i = 0; i < 3; i++) {
+    const cargo = MeshBuilder.CreatePolyhedron("conveyor-ore-" + i, { type: 1, size: 0.23 }, scene);
+    cargo.material = oreMat;
+    conveyorCargo.push(cargo);
+  }
+  conveyorBuilt = true;
+  conveyorTimer = 0;
+}
+
 function updateSaveStatus(message: string): void {
   if (saveStatus) saveStatus.textContent = message;
 }
@@ -423,6 +479,8 @@ function saveGame(): void {
     oreAmounts: oreNodes.map(node => node.amount),
     machines: oreNodes.map(node => node.machineBuilt),
     steel,
+    oreBuffer,
+    conveyorBuilt,
     smelterBuilt
   };
   try {
@@ -449,7 +507,11 @@ function loadGame(): void {
     if (typeof data.steel === "number" && Number.isFinite(data.steel)) {
       steel = Math.max(0, Math.floor(data.steel));
     }
+    if (typeof data.oreBuffer === "number" && Number.isFinite(data.oreBuffer)) {
+      oreBuffer = Math.max(0, Math.floor(data.oreBuffer));
+    }
     if (data.smelterBuilt === true) createSmelter();
+    if (data.conveyorBuilt === true && data.smelterBuilt === true) createConveyor();
     if (data.player && Number.isFinite(data.player.x) && Number.isFinite(data.player.z)) {
       player.position.x = Math.max(-42, Math.min(42, data.player.x));
       player.position.z = Math.max(-42, Math.min(42, data.player.z));
@@ -475,6 +537,7 @@ function loadGame(): void {
     }
     if (ironCounter) ironCounter.textContent = String(iron);
     if (steelCounter) steelCounter.textContent = String(steel);
+    if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
     updateSaveStatus("Wczytano zapis lokalny");
   } catch (error) {
     console.warn("Zapis gry jest uszkodzony lub nieaktualny:", error);
@@ -564,6 +627,31 @@ function buildSmelter(): void {
 }
 buildSmelterButton?.addEventListener("click", buildSmelter);
 
+function buildConveyorBelt(): void {
+  if (!smelterBuilt) {
+    if (statusText) statusText.textContent = "Najpierw zbuduj hutę";
+    return;
+  }
+  if (!oreNodes[0].machineBuilt || oreNodes[0].amount <= 0) {
+    if (statusText) statusText.textContent = "Najpierw uruchom koparkę przy oznaczonym złożu";
+    return;
+  }
+  if (conveyorBuilt) {
+    if (statusText) statusText.textContent = "Taśmociąg jest już podłączony";
+    return;
+  }
+  if (steel < CONVEYOR_STEEL_COST) {
+    if (statusText) statusText.textContent = "Potrzeba " + CONVEYOR_STEEL_COST + " stali na taśmociąg";
+    return;
+  }
+  steel -= CONVEYOR_STEEL_COST;
+  if (steelCounter) steelCounter.textContent = String(steel);
+  createConveyor();
+  if (statusText) statusText.textContent = "Taśmociąg podłączony · ruda trafia prosto do zasobnika huty";
+  saveGame();
+}
+buildConveyorButton?.addEventListener("click", buildConveyorBelt);
+
 scene.onBeforeRenderObservable.add(() => {
   const deltaSeconds = Math.min(engine.getDeltaTime() / 1000, 0.05);
   const forward = Number(pressed.has("forward")) - Number(pressed.has("back"));
@@ -604,14 +692,23 @@ scene.onBeforeRenderObservable.add(() => {
       : "ZBUDUJ HUTĘ · " + SMELTER_COST + " ŻELAZA";
   }
   if (smelterState) {
-    smelterState.textContent = !smelterBuilt ? "BRAK" : iron >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ";
+    smelterState.textContent = !smelterBuilt ? "BRAK" : (conveyorBuilt ? oreBuffer : iron) >= SMELTER_IRON_PER_INGOT ? "PRACA" : "POSTÓJ";
   }
+  if (buildConveyorButton) {
+    const canBuild = smelterBuilt && oreNodes[0].machineBuilt && oreNodes[0].amount > 0;
+    buildConveyorButton.disabled = conveyorBuilt || !canBuild || steel < CONVEYOR_STEEL_COST;
+    buildConveyorButton.textContent = conveyorBuilt
+      ? "TAŚMOCIĄG PODŁĄCZONY"
+      : "ZBUDUJ TAŚMOCIĄG · " + CONVEYOR_STEEL_COST + " STALI";
+  }
+  if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
   if (!smelterBuilt) smelterSiteMarker.rotation.y += deltaSeconds * 0.12;
   if (nearbyOre && statusText && !nearbyOre.machineBuilt) {
     statusText.textContent = "Złoże żelaza w zasięgu · " + nearbyOre.amount + " jednostek";
   }
   if (smelterBuilt && smelterGlow) {
-    const active = iron >= SMELTER_IRON_PER_INGOT;
+    const smelterInput = conveyorBuilt ? oreBuffer : iron;
+    const active = smelterInput >= SMELTER_IRON_PER_INGOT;
     if (active) smelterTimer += deltaSeconds;
     if (smelterFan) smelterFan.rotation.y += deltaSeconds * (active ? 1.7 : 0.25);
     const pulse = 0.72 + Math.sin(performance.now() * 0.008) * 0.12;
@@ -621,13 +718,26 @@ scene.onBeforeRenderObservable.add(() => {
       : new Color3(0.08, 0.025, 0.005);
     if (active && smelterTimer >= SMELTER_CYCLE_SECONDS) {
       smelterTimer -= SMELTER_CYCLE_SECONDS;
-      iron -= SMELTER_IRON_PER_INGOT;
+      if (conveyorBuilt) oreBuffer -= SMELTER_IRON_PER_INGOT;
+      else iron -= SMELTER_IRON_PER_INGOT;
       steel += 1;
       if (ironCounter) ironCounter.textContent = String(iron);
       if (steelCounter) steelCounter.textContent = String(steel);
+      if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
       if (statusText) statusText.textContent = "Huta wyprodukowała 1 stalową sztabkę";
       saveGame();
     }
+  }
+  if (conveyorBuilt) {
+    const start = new Vector3(5, 0, 4);
+    const end = new Vector3(-3.8, 0, 1.2);
+    const travel = (performance.now() * 0.00016) % 1;
+    conveyorCargo.forEach((cargo, index) => {
+      const t = (travel + index / conveyorCargo.length) % 1;
+      const point = Vector3.Lerp(start, end, t);
+      cargo.position.set(point.x, 0.72 + Math.sin(t * Math.PI * 8) * 0.035, point.z);
+      cargo.rotation.y += deltaSeconds * 1.8;
+    });
   }
   for (const node of oreNodes) {
     if (!node.machineBuilt || node.amount <= 0) continue;
@@ -637,8 +747,10 @@ scene.onBeforeRenderObservable.add(() => {
     if (node.machineTimer >= MACHINE_CYCLE_SECONDS) {
       node.machineTimer -= MACHINE_CYCLE_SECONDS;
       node.amount -= 1;
-      iron += 1;
+      if (conveyorBuilt && node === oreNodes[0]) oreBuffer += 1;
+      else iron += 1;
       if (ironCounter) ironCounter.textContent = String(iron);
+      if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
       node.mesh.scaling.scaleInPlace(0.91);
       if (node.amount <= 0) {
         node.mesh.setEnabled(false);
