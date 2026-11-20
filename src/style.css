@@ -19,3 +19,4 @@ html,body,#app{width:100%;height:100%;margin:0;overflow:hidden}
 .mobile-controls button:active{background:rgba(85,145,106,.8)}
 @media(min-width:800px){.mobile-controls{opacity:.55}.help{font-size:12px}}
 @media(max-width:480px){.topbar{height:56px;padding:0 14px}.hud{top:68px;left:14px}.help{bottom:15px;font-size:9px;max-width:90%;white-space:normal;text-align:center}.mobile-controls{left:14px;bottom:65px}}
+.interact-button{position:absolute;right:22px;bottom:78px;padding:14px 17px;border:1px solid rgba(170,225,185,.55);border-radius:11px;background:rgba(35,91,57,.88);color:#f0fff4;font-weight:800;font-size:11px;letter-spacing:.08em;touch-action:manipulation}.interact-button:active{background:#397b50}@media(max-width:480px){.interact-button{right:14px;bottom:68px;padding:13px 12px;font-size:10px}}
