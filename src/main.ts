@@ -6,7 +6,16 @@ import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");
 if (!canvas) throw new Error("Nie znaleziono elementu canvas.");
-const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+// Terra Industries jest projektowana wyłącznie na telefony. Ograniczamy koszt renderowania
+// na urządzeniach mobilnych, zachowując możliwość regulacji jakości na słabszym sprzęcie.
+const mobileDevice = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 800;
+const engine = new Engine(canvas, !mobileDevice, {
+  preserveDrawingBuffer: false,
+  stencil: true,
+  adaptToDeviceRatio: true,
+  powerPreference: "high-performance"
+});
+if (mobileDevice) engine.setHardwareScalingLevel(window.devicePixelRatio > 2 ? 1.5 : 1.25);
 const scene = new Scene(engine);
 scene.clearColor = new Color4(0.035, 0.065, 0.07, 1);
 
@@ -91,7 +100,7 @@ const keyMap: Record<string, string> = {
   KeyW: "forward", ArrowUp: "forward", KeyS: "back", ArrowDown: "back",
   KeyA: "left", ArrowLeft: "left", KeyD: "right", ArrowRight: "right"
 };
-window.addEventListener("keydown", event => {
+// Klawiatura pozostaje pomocnicza w środowisku developerskim; docelowe sterowanie jest dotykowe.\nwindow.addEventListener("keydown", event => {
   const action = keyMap[event.code];
   if (action) { pressed.add(action); event.preventDefault(); }
   if (event.code === "KeyE") collectOre();
@@ -246,4 +255,8 @@ scene.onBeforeRenderObservable.add(() => {
 });
 
 engine.runRenderLoop(() => scene.render());
-window.addEventListener("resize", () => engine.resize());
+window.addEventListener("resize", () => {
+  engine.resize();
+  const isPhone = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 800;
+  engine.setHardwareScalingLevel(isPhone ? (window.devicePixelRatio > 2 ? 1.5 : 1.25) : 1);
+});
