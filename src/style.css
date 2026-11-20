@@ -191,3 +191,16 @@ html,body,#app{overscroll-behavior:none;user-select:none;-webkit-user-select:non
   .machine-panel{bottom:calc(68px + var(--safe-bottom));padding:12px;max-height:38vh}
   .menu-panel-message{font-size:11px}
 }
+
+
+/* Czytelna podpowiedź, gdy pracownik podejdzie do zakładu */
+.bottom-menu-button.nearby{color:#f0fff3;position:relative}
+.bottom-menu-button.nearby::after{
+  content:"";position:absolute;top:6px;right:calc(50% - 18px);
+  width:6px;height:6px;border-radius:50%;background:#8ee3a6;
+  box-shadow:0 0 10px rgba(142,227,166,.9)
+}
+@media(max-width:799px){
+  /* Dolne menu zastępuje instrukcję tekstową, dzięki czemu nie nachodzą na siebie. */
+  .help{display:none}
+}
