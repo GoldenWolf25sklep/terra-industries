@@ -2,6 +2,7 @@ import {
   ArcRotateCamera, Color3, Color4, DirectionalLight, Engine, HemisphericLight,
   MeshBuilder, Scene, StandardMaterial, Vector3
 } from "@babylonjs/core";
+import { CapacitorUpdater } from "@capgo/capacitor-updater";
 import "./style.css";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");
@@ -777,6 +778,13 @@ scene.onBeforeRenderObservable.add(() => {
 });
 
 engine.runRenderLoop(() => scene.render());
+
+// Potwierdź poprawne uruchomienie aplikacji updaterowi OTA.
+// Aktualizacja pobiera się w tle i jest stosowana przy przejściu aplikacji do tła.
+void CapacitorUpdater.notifyAppReady().catch(error => {
+  console.warn("Aktualizacje OTA są chwilowo niedostępne:", error);
+});
+
 window.addEventListener("resize", () => {
   engine.resize();
   const isPhone = window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 800;
