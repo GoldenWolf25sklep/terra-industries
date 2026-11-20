@@ -7,7 +7,8 @@ Pierwszy fundament oryginalnej gry 3D o eksploracji i automatyzacji przemysłowe
 - postać gracza i kamera trzecioosobowa;
 - sterowanie WASD, strzałkami oraz przyciskami dotykowymi;
 - pole rudy żelaza;
-- interakcja: podejdź do złoża i naciśnij E, aby zebrać jednostkę rudy.
+- interakcja: podejdź do złoża i naciśnij E, aby zebrać jednostkę rudy;
+- automatyczny zapis lokalny: ilość żelaza, pozycja gracza i stan złóż są zachowywane między uruchomieniami.
 
 ## Uruchomienie
 Wymaga Node.js 20+:
@@ -17,7 +18,7 @@ npm run dev
 ```
 
 ## Plan rozwoju
-1. ekwipunek i zasoby;
+1. rozbudowany ekwipunek i zasoby;
 2. budowanie na siatce;
 3. automatyczna koparka;
 4. taśmociąg;
