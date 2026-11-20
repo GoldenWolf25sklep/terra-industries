@@ -1,7 +1,8 @@
 import { Capacitor } from "@capacitor/core";
 import {
-  ArcRotateCamera, Color3, Color4, DirectionalLight, Engine, HemisphericLight,
-  MeshBuilder, Scene, StandardMaterial, Vector3
+  ArcRotateCamera, Color3, Color4, DefaultRenderingPipeline, DirectionalLight,
+  DynamicTexture, Engine, GlowLayer, HemisphericLight, ImageProcessingConfiguration,
+  MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3
 } from "@babylonjs/core";
 import { CapacitorUpdater } from "@capgo/capacitor-updater";
 import "./style.css";
@@ -22,20 +23,62 @@ const scene = new Scene(engine);
 scene.clearColor = new Color4(0.035, 0.065, 0.07, 1);
 
 const hemi = new HemisphericLight("ambient-light", new Vector3(0, 1, 0), scene);
-hemi.intensity = 0.9;
+hemi.intensity = 0.78;
+hemi.groundColor = new Color3(0.19, 0.22, 0.19);
 const sun = new DirectionalLight("sun", new Vector3(-0.45, -1, 0.35), scene);
 sun.position = new Vector3(20, 35, -20);
-sun.intensity = 1.2;
+sun.intensity = 1.35;
+sun.shadowMinZ = 1;
+sun.shadowMaxZ = 85;
+
+// Miękkie cienie pod maszynami, drzewami i postacią mocniej osadzają obiekty w świecie.
+const shadows = new ShadowGenerator(mobileDevice ? 1024 : 2048, sun);
+shadows.usePercentageCloserFiltering = true;
+shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+shadows.bias = 0.0005;
+shadows.normalBias = 0.025;
+scene.onNewMeshAddedObservable.add(mesh => {
+  if (mesh !== ground && mesh.isVisible && mesh.name !== "terrain") {
+    shadows.addShadowCaster(mesh, true);
+    mesh.receiveShadows = true;
+  }
+});
+
+// Delikatna mgła wygładza daleki horyzont i poprawia głębię sceny.
+scene.fogMode = Scene.FOGMODE_EXP2;
+scene.fogDensity = 0.0028;
+scene.fogColor = new Color3(0.36, 0.43, 0.38);
 
 const groundMat = new StandardMaterial("ground-material", scene);
-groundMat.diffuseColor = new Color3(0.19, 0.27, 0.22);
+groundMat.diffuseColor = Color3.White();
 groundMat.specularColor = Color3.Black();
+// Proceduralna tekstura ziemi: drobne naturalne przebarwienia zamiast płaskiej zielonej planszy.
+const terrainTexture = new DynamicTexture("terrain-ground-texture", { width: 512, height: 512 }, scene, false);
+const terrainContext = terrainTexture.getContext();
+const terrainPixels = terrainContext.createImageData(512, 512);
+let terrainSeed = 173;
+for (let y = 0; y < 512; y++) {
+  for (let x = 0; x < 512; x++) {
+    terrainSeed = (terrainSeed * 1664525 + 1013904223) >>> 0;
+    const grain = ((terrainSeed >>> 24) - 128) * 0.16;
+    const broad = Math.sin(x * 0.035) * 3.2 + Math.cos(y * 0.027) * 2.6;
+    const index = (y * 512 + x) * 4;
+    terrainPixels.data[index] = Math.max(0, Math.min(255, 76 + grain + broad));
+    terrainPixels.data[index + 1] = Math.max(0, Math.min(255, 91 + grain + broad));
+    terrainPixels.data[index + 2] = Math.max(0, Math.min(255, 66 + grain + broad * 0.7));
+    terrainPixels.data[index + 3] = 255;
+  }
+}
+terrainContext.putImageData(terrainPixels, 0, 0);
+terrainTexture.update(false);
+groundMat.diffuseTexture = terrainTexture;
 const ground = MeshBuilder.CreateGround("terrain", { width: 90, height: 90, subdivisions: 2 }, scene);
 ground.material = groundMat;
+ground.receiveShadows = true;
 
 const gridMat = new StandardMaterial("grid-material", scene);
 gridMat.diffuseColor = new Color3(0.38, 0.52, 0.43);
-gridMat.alpha = 0.055;
+gridMat.alpha = 0.028;
 for (let i = -40; i <= 40; i += 5) {
   const x = MeshBuilder.CreateBox("grid-x-" + i, { width: 0.025, height: 0.012, depth: 80 }, scene);
   x.position.set(i, 0.012, 0); x.material = gridMat;
@@ -242,6 +285,21 @@ camera.panningSensibility = 0;
 camera.wheelPrecision = 45;
 camera.attachControl(canvas, true);
 camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
+
+// Lekka korekcja obrazu: lepszy kontrast, cieplejsze światło i subtelna poświata.
+const renderingPipeline = new DefaultRenderingPipeline("terra-render-pipeline", !mobileDevice, scene, [camera]);
+renderingPipeline.fxaaEnabled = true;
+renderingPipeline.imageProcessingEnabled = true;
+renderingPipeline.imageProcessing.contrast = 1.12;
+renderingPipeline.imageProcessing.exposure = 1.08;
+renderingPipeline.imageProcessing.toneMappingEnabled = true;
+renderingPipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
+renderingPipeline.bloomEnabled = !mobileDevice;
+renderingPipeline.bloomThreshold = 0.88;
+renderingPipeline.bloomWeight = 0.16;
+renderingPipeline.bloomKernel = 48;
+const glowLayer = new GlowLayer("terra-soft-glow", scene, { blurKernelSize: 24 });
+glowLayer.intensity = mobileDevice ? 0.28 : 0.42;
 
 const pressed = new Set<string>();
 const moveJoystick = document.querySelector<HTMLDivElement>("#move-joystick");
