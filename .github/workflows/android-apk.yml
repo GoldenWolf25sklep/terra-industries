@@ -30,6 +30,23 @@ jobs:
         run: npx cap add android
       - name: Sync Capacitor
         run: npx cap sync android
+      - name: Force portrait orientation
+        working-directory: android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          path = Path("app/src/main/AndroidManifest.xml")
+          tree = ET.parse(path)
+          root = tree.getroot()
+          ns = "{http://schemas.android.com/apk/res/android}"
+          activities = root.findall(".//activity")
+          if not activities:
+              raise SystemExit("AndroidManifest.xml has no activity to configure")
+          for activity in activities:
+              activity.set(ns + "screenOrientation", "portrait")
+          tree.write(path, encoding="utf-8", xml_declaration=True)
+          PY
       - name: Update Android build tools for API 35
         working-directory: android
         run: |
