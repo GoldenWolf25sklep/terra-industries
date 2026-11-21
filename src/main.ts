@@ -862,9 +862,9 @@ scene.onBeforeRenderObservable.add(() => {
     } else if (activeMenuTab === "machines" && !nearAnyMachine) {
       menuPanelMessage.textContent = "Podejdź do koparki przy złożu albo do oznaczonego miejsca huty. Dopiero wtedy pojawią się zakupy i ulepszenia.";
     } else if (activeMenuTab === "machines" && nearbyOre?.machineBuilt) {
-      menuPanelMessage.textContent = "Koparka poziom " + nearbyOre.machineLevel + "/3 · wydobywa 10 żelaza co " + (MACHINE_CYCLE_SECONDS / nearbyOre.machineLevel).toFixed(1) + " s.";
+      menuPanelMessage.textContent = "Złoże nr " + (oreNodes.indexOf(nearbyOre) + 1) + " · koparka poziom " + nearbyOre.machineLevel + "/3 · wydobywa 10 żelaza co " + (MACHINE_CYCLE_SECONDS / nearbyOre.machineLevel).toFixed(1) + " s.";
     } else if (activeMenuTab === "machines" && nearbyOre) {
-      menuPanelMessage.textContent = "Główne złoże żelaza · nieograniczona ilość. Możesz wydobywać ręcznie lub kupić koparkę.";
+      menuPanelMessage.textContent = "Złoże nr " + (oreNodes.indexOf(nearbyOre) + 1) + " · żelazo bez ograniczeń. Możesz wydobywać ręcznie lub kupić koparkę.";
     } else if (activeMenuTab === "machines" && atSmelterSite) {
       menuPanelMessage.textContent = smelterBuilt
         ? "Huta poziom " + smelterLevel + "/3 · 10 stali co " + (SMELTER_CYCLE_SECONDS / smelterLevel).toFixed(1) + " s. Możesz ulepszyć produkcję lub transport."
