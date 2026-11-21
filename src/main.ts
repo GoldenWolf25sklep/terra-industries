@@ -857,8 +857,10 @@ scene.onBeforeRenderObservable.add(() => {
     machineActions.hidden = activeMenuTab !== "machines" || !nearAnyMachine;
     if (activeMenuTab === "storage") {
       const ironRate = Math.round(oreNodes.reduce((rate, node) => rate + (node.machineBuilt && !(conveyorBuilt && node === oreNodes[0]) ? 60 * 10 / (MACHINE_CYCLE_SECONDS / node.machineLevel) : 0), 0));
+      const oreFeedRate = conveyorBuilt && oreNodes[0].machineBuilt ? Math.round(60 * 10 / (MACHINE_CYCLE_SECONDS / oreNodes[0].machineLevel)) : 0;
       const steelRate = smelterBuilt ? Math.round(60 * 10 / (SMELTER_CYCLE_SECONDS / smelterLevel)) : 0;
-      menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + "/" + ORE_BUFFER_CAPACITY + (oreBuffer >= ORE_BUFFER_CAPACITY ? " · ZASOBNIK PEŁNY" : "") + ". Maks. tempo: koparka " + ironRate + " żelaza/min · huta " + steelRate + " stali/min. Taśmociąg: " + (conveyorBuilt ? "zamontowany" : "brak") + ". Zasoby zapisują się automatycznie.";
+      const mineSummary = oreNodes.map((node, index) => "Z" + (index + 1) + ": " + (node.machineBuilt ? "P" + node.machineLevel + " · " + Math.round(60 * 10 / (MACHINE_CYCLE_SECONDS / node.machineLevel)) + "/min" : "brak koparki")).join(" | ");
+      menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + "/" + ORE_BUFFER_CAPACITY + (oreBuffer >= ORE_BUFFER_CAPACITY ? " · ZASOBNIK PEŁNY" : "") + ". Produkcja koparek: " + mineSummary + ". Do huty: " + oreFeedRate + " rudy/min · bezpośrednio do magazynu: " + ironRate + " żelaza/min · huta: " + steelRate + " stali/min. Taśmociąg: " + (conveyorBuilt ? "zamontowany" : "brak") + ". Zasoby zapisują się automatycznie.";
     } else if (activeMenuTab === "machines" && !nearAnyMachine) {
       menuPanelMessage.textContent = "Podejdź do koparki przy złożu albo do oznaczonego miejsca huty. Dopiero wtedy pojawią się zakupy i ulepszenia.";
     } else if (activeMenuTab === "machines" && nearbyOre?.machineBuilt) {
