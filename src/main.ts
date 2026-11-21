@@ -398,6 +398,8 @@ let smelterGlow: ReturnType<typeof MeshBuilder.CreateSphere> | null = null;
 let smelterFan: ReturnType<typeof MeshBuilder.CreateCylinder> | null = null;
 let nearbyOre: OreNode | null = null;
 const INTERACTION_RANGE = 3.4;
+// Zasobnik ma ograniczoną pojemność; pełny bufor zatrzymuje koparkę, nie marnując urobku.
+const ORE_BUFFER_CAPACITY = 500;
 const SAVE_KEY = "terra-industries-save-v1";
 const saveStatus = document.querySelector<HTMLElement>("#save-status");
 
@@ -620,7 +622,7 @@ function loadGame(): void {
       steel = Math.max(0, Math.floor(data.steel));
     }
     if (typeof data.oreBuffer === "number" && Number.isFinite(data.oreBuffer)) {
-      oreBuffer = Math.max(0, Math.floor(data.oreBuffer));
+      oreBuffer = Math.max(0, Math.min(ORE_BUFFER_CAPACITY, Math.floor(data.oreBuffer)));
     }
     if (data.smelterBuilt === true) {
       createSmelter();
@@ -849,7 +851,7 @@ scene.onBeforeRenderObservable.add(() => {
     menuPanelTitle.textContent = tabTitle;
     machineActions.hidden = activeMenuTab !== "machines" || !nearAnyMachine;
     if (activeMenuTab === "storage") {
-      menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + ". Zasoby zapisują się automatycznie.";
+      menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + "/" + ORE_BUFFER_CAPACITY + (oreBuffer >= ORE_BUFFER_CAPACITY ? " · ZASOBNIK PEŁNY" : "") + ". Zasoby zapisują się automatycznie.";
     } else if (activeMenuTab === "machines" && !nearAnyMachine) {
       menuPanelMessage.textContent = "Podejdź do koparki przy złożu albo do oznaczonego miejsca huty. Dopiero wtedy pojawią się zakupy i ulepszenia.";
     } else if (activeMenuTab === "machines" && nearbyOre?.machineBuilt) {
@@ -959,12 +961,16 @@ scene.onBeforeRenderObservable.add(() => {
     node.beacon.rotation.y += deltaSeconds * 0.42;
     node.beacon.position.y = 2.8 + Math.sin(performance.now() * 0.0018 + node.mesh.position.x) * 0.12;
     if (!node.machineBuilt || node.amount === 0) continue;
+    if (conveyorBuilt && node === oreNodes[0] && oreBuffer >= ORE_BUFFER_CAPACITY) {
+      node.machineTimer = 0;
+      continue;
+    }
     if (node.machineParts[3]) node.machineParts[3].rotation.y += deltaSeconds * 1.8;
     if (node.machineParts[6]) node.machineParts[6].rotation.y += deltaSeconds * 2.5;
     node.machineTimer += deltaSeconds;
     if (node.machineTimer >= MACHINE_CYCLE_SECONDS / node.machineLevel) {
       node.machineTimer -= MACHINE_CYCLE_SECONDS / node.machineLevel;
-      if (conveyorBuilt && node === oreNodes[0]) oreBuffer += 10;
+      if (conveyorBuilt && node === oreNodes[0]) oreBuffer = Math.min(ORE_BUFFER_CAPACITY, oreBuffer + 10);
       else iron += 10;
       if (ironCounter) ironCounter.textContent = String(iron);
       if (oreBufferCounter) oreBufferCounter.textContent = String(oreBuffer);
