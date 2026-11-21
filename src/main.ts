@@ -192,7 +192,12 @@ type OreNode = {
   machineTimer: number;
 };
 const oreNodes: OreNode[] = [];
-const orePositions = [new Vector3(2.2, 0, 2.2)];
+// Trzy niezależne, bezterminowe złoża pozwalają rozwijać wydobycie w różnych częściach mapy.
+const orePositions = [
+  new Vector3(2.2, 0, 2.2),
+  new Vector3(11.5, 0, -7.5),
+  new Vector3(-13.5, 0, -9.5)
+];
 orePositions.forEach((position, index) => {
   const ore = MeshBuilder.CreatePolyhedron("iron-ore-" + index, { type: 1, size: 2.15 }, scene);
   ore.position.set(position.x, 0.62, position.z);
@@ -851,8 +856,7 @@ scene.onBeforeRenderObservable.add(() => {
     menuPanelTitle.textContent = tabTitle;
     machineActions.hidden = activeMenuTab !== "machines" || !nearAnyMachine;
     if (activeMenuTab === "storage") {
-      const miner = oreNodes.find(node => node.machineBuilt);
-      const ironRate = miner ? Math.round(60 * 10 / (MACHINE_CYCLE_SECONDS / miner.machineLevel)) : 0;
+      const ironRate = Math.round(oreNodes.reduce((rate, node) => rate + (node.machineBuilt && !(conveyorBuilt && node === oreNodes[0]) ? 60 * 10 / (MACHINE_CYCLE_SECONDS / node.machineLevel) : 0), 0));
       const steelRate = smelterBuilt ? Math.round(60 * 10 / (SMELTER_CYCLE_SECONDS / smelterLevel)) : 0;
       menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + "/" + ORE_BUFFER_CAPACITY + (oreBuffer >= ORE_BUFFER_CAPACITY ? " · ZASOBNIK PEŁNY" : "") + ". Maks. tempo: koparka " + ironRate + " żelaza/min · huta " + steelRate + " stali/min. Taśmociąg: " + (conveyorBuilt ? "zamontowany" : "brak") + ". Zasoby zapisują się automatycznie.";
     } else if (activeMenuTab === "machines" && !nearAnyMachine) {
