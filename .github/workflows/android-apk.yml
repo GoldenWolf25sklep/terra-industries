@@ -36,6 +36,8 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
+          ET.register_namespace("", "http://schemas.android.com/apk/res/android")
+          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
           path = Path("app/src/main/AndroidManifest.xml")
           tree = ET.parse(path)
           root = tree.getroot()
