@@ -918,7 +918,7 @@ scene.onBeforeRenderObservable.add(() => {
       : "Główne złoże żelaza w zasięgu · bez limitu · otwórz MASZYNY";
   } else if (atSmelterSite && statusText) {
     statusText.textContent = smelterBuilt
-      ? "Huta w zasięgu · otwórz MASZYNY, aby zarządzać transportem"
+      ? "Huta w zasięgu · otwórz MASZYNY, aby ulepszyć produkcję lub transport"
       : "Miejsce budowy huty w zasięgu · otwórz MASZYNY";
   }
   if (smelterBuilt && smelterGlow) {
@@ -931,8 +931,9 @@ scene.onBeforeRenderObservable.add(() => {
     furnaceGlowMat.emissiveColor = active
       ? new Color3(0.9 * pulse, 0.16 * pulse, 0.015)
       : new Color3(0.08, 0.025, 0.005);
-    if (active && smelterTimer >= SMELTER_CYCLE_SECONDS) {
-      smelterTimer -= SMELTER_CYCLE_SECONDS / smelterLevel;
+    const smelterCycle = SMELTER_CYCLE_SECONDS / smelterLevel;
+    if (active && smelterTimer >= smelterCycle) {
+      smelterTimer -= smelterCycle;
       if (conveyorBuilt) oreBuffer -= SMELTER_IRON_PER_INGOT;
       else iron -= SMELTER_IRON_PER_INGOT;
       steel += 10;
