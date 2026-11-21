@@ -851,7 +851,10 @@ scene.onBeforeRenderObservable.add(() => {
     menuPanelTitle.textContent = tabTitle;
     machineActions.hidden = activeMenuTab !== "machines" || !nearAnyMachine;
     if (activeMenuTab === "storage") {
-      menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + "/" + ORE_BUFFER_CAPACITY + (oreBuffer >= ORE_BUFFER_CAPACITY ? " · ZASOBNIK PEŁNY" : "") + ". Zasoby zapisują się automatycznie.";
+      const miner = oreNodes.find(node => node.machineBuilt);
+      const ironRate = miner ? Math.round(60 * 10 / (MACHINE_CYCLE_SECONDS / miner.machineLevel)) : 0;
+      const steelRate = smelterBuilt ? Math.round(60 * 10 / (SMELTER_CYCLE_SECONDS / smelterLevel)) : 0;
+      menuPanelMessage.textContent = "Żelazo: " + iron + " · Stal: " + steel + " · Wsad: " + oreBuffer + "/" + ORE_BUFFER_CAPACITY + (oreBuffer >= ORE_BUFFER_CAPACITY ? " · ZASOBNIK PEŁNY" : "") + ". Maks. tempo: koparka " + ironRate + " żelaza/min · huta " + steelRate + " stali/min. Taśmociąg: " + (conveyorBuilt ? "zamontowany" : "brak") + ". Zasoby zapisują się automatycznie.";
     } else if (activeMenuTab === "machines" && !nearAnyMachine) {
       menuPanelMessage.textContent = "Podejdź do koparki przy złożu albo do oznaczonego miejsca huty. Dopiero wtedy pojawią się zakupy i ulepszenia.";
     } else if (activeMenuTab === "machines" && nearbyOre?.machineBuilt) {
